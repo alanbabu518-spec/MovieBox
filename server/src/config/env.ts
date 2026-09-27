@@ -21,4 +21,5 @@ export const env = {
   port,
   jwtSecret,
   jwtExpiresIn,
+  cookieName: "moviebox_access_token",
 };

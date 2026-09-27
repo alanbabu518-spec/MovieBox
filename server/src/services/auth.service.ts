@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
+import { AppError } from "../utils/appError.js";
 
 type RegisterInput = {
   name: string;
@@ -30,7 +31,7 @@ export const registerUser = async ({
   });
 
   if (existingUser) {
-    throw new Error("Email already registered");
+    throw new AppError("Email already registered", 409);
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -50,30 +51,32 @@ export const registerUser = async ({
     },
   });
 
-  const token = createToken(user.id);
-
   return {
     user,
-    token,
+    token: createToken(user.id),
   };
 };
 
-export const loginUser = async ({ email, password }: LoginInput) => {
+export const loginUser = async ({
+  email,
+  password,
+}: LoginInput) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new AppError("Invalid email or password", 401);
   }
 
-  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+  const passwordMatches = await bcrypt.compare(
+    password,
+    user.passwordHash
+  );
 
   if (!passwordMatches) {
-    throw new Error("Invalid email or password");
+    throw new AppError("Invalid email or password", 401);
   }
-
-  const token = createToken(user.id);
 
   return {
     user: {
@@ -83,6 +86,25 @@ export const loginUser = async ({ email, password }: LoginInput) => {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     },
-    token,
+    token: createToken(user.id),
   };
+};
+
+export const getCurrentUser = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      emailVerified: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  return user;
 };
