@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: moviebox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moviebox
+      POSTGRES_PASSWORD: moviebox_dev_password
+      POSTGRES_DB: moviebox
+    ports:
+      - "5433:5432"
+    volumes:
+      - moviebox_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moviebox -d moviebox"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: moviebox-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - moviebox_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  moviebox_postgres_data:
+  moviebox_redis_data:
