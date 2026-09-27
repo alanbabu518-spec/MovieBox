@@ -7,7 +7,7 @@ import { AuthenticatedRequest } from "../types/auth.js";
 export const authenticate = (
   req: AuthenticatedRequest,
   _res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const token = req.cookies?.[env.cookieName];
 
@@ -17,7 +17,9 @@ export const authenticate = (
   }
 
   try {
-    const payload = jwt.verify(token, env.jwtSecret);
+    const payload = jwt.verify(token, env.jwtSecret, {
+      algorithms: ["HS256"],
+    });
 
     if (
       typeof payload !== "object" ||

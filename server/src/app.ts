@@ -5,18 +5,22 @@ import cookieParser from "cookie-parser";
 import routes from "./routes/index.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { env } from "./config/env.js";
+import { csrfProtection } from "./middleware/csrf.js";
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: env.clientUrl,
     credentials: true,
-  })
+  }),
 );
 
+app.use(csrfProtection);
+
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
 app.get("/", (_req, res) => {

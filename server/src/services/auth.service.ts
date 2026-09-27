@@ -30,6 +30,7 @@ type VerifyEmailOTPInput = {
 
 const createToken = (userId: string) => {
   return jwt.sign({ userId }, env.jwtSecret, {
+    algorithm: "HS256",
     expiresIn: env.jwtExpiresIn,
   } as jwt.SignOptions);
 };
@@ -47,14 +48,22 @@ export const registerUser = async ({
     throw new AppError("Email already registered", 409);
   }
 
-  const existingPendingRegistration = await getPendingRegistration(email).catch(
-    () => null
-  );
+  let existingPendingRegistration = null;
+
+  try {
+    existingPendingRegistration = await getPendingRegistration(email);
+  } catch (error) {
+    if (error instanceof AppError && error.statusCode === 400) {
+      existingPendingRegistration = null;
+    } else {
+      throw error;
+    }
+  }
 
   if (existingPendingRegistration) {
     throw new AppError(
       "A verification OTP was already sent. Please use resend OTP.",
-      409
+      409,
     );
   }
 
@@ -80,14 +89,8 @@ export const registerUser = async ({
   };
 };
 
-export const verifyEmailOTP = async ({
-  email,
-  otp,
-}: VerifyEmailOTPInput) => {
-  const pendingRegistration = await verifyPendingOTP(
-    email,
-    otp
-  );
+export const verifyEmailOTP = async ({ email, otp }: VerifyEmailOTPInput) => {
+  const pendingRegistration = await verifyPendingOTP(email, otp);
 
   const user = await prisma.user.create({
     data: {
@@ -132,10 +135,7 @@ export const resendEmailOTP = async (email: string) => {
   });
 };
 
-export const loginUser = async ({
-  email,
-  password,
-}: LoginInput) => {
+export const loginUser = async ({ email, password }: LoginInput) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -144,20 +144,14 @@ export const loginUser = async ({
     throw new AppError("Invalid email or password", 401);
   }
 
-  const passwordMatches = await bcrypt.compare(
-    password,
-    user.passwordHash
-  );
+  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
   if (!passwordMatches) {
     throw new AppError("Invalid email or password", 401);
   }
 
   if (!user.emailVerified) {
-    throw new AppError(
-      "Please verify your email before logging in",
-      403
-    );
+    throw new AppError("Please verify your email before logging in", 403);
   }
 
   return {
