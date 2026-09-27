@@ -45,6 +45,11 @@ export { Prisma }
  */
 export type User = Prisma.UserModel
 /**
+ * Model MovieBoxEmailOTP
+ * 
+ */
+export type MovieBoxEmailOTP = Prisma.MovieBoxEmailOTPModel
+/**
  * Model Movie
  * 
  */

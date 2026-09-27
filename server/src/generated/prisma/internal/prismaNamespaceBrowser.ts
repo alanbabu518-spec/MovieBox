@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  MovieBoxEmailOTP: 'MovieBoxEmailOTP',
   Movie: 'Movie',
   Watchlist: 'Watchlist',
   Favorite: 'Favorite',
@@ -87,6 +88,18 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const MovieBoxEmailOTPScalarFieldEnum = {
+  id: 'id',
+  codeHash: 'codeHash',
+  userId: 'userId',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  attempts: 'attempts'
+} as const
+
+export type MovieBoxEmailOTPScalarFieldEnum = (typeof MovieBoxEmailOTPScalarFieldEnum)[keyof typeof MovieBoxEmailOTPScalarFieldEnum]
 
 
 export const MovieScalarFieldEnum = {

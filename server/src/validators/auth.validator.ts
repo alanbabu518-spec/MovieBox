@@ -25,3 +25,14 @@ export const loginSchema = z.object({
     .transform((value) => value.toLowerCase()),
   password: z.string().min(1, "Password is required"),
 });
+
+export const verifyEmailOTPSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email address")
+    .transform((value) => value.toLowerCase()),
+  otp: z
+    .string()
+    .regex(/^\d{6}$/, "OTP must be 6 digits"),
+});

@@ -3,14 +3,13 @@ import {
   getCurrentUser,
   loginUser,
   registerUser,
+  verifyEmailOTP,
 } from "../services/auth.service.js";
-import {
-  loginSchema,
-  registerSchema,
-} from "../validators/auth.validator.js";
+import { loginSchema, registerSchema } from "../validators/auth.validator.js";
 import { AuthenticatedRequest } from "../types/auth.js";
 import { AppError } from "../utils/appError.js";
 import { env } from "../config/env.js";
+import { verifyEmailOTPSchema } from "../validators/auth.validator.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -20,19 +19,12 @@ const cookieOptions = {
   path: "/",
 };
 
-export const register = async (
-  req: Request,
-  res: Response
-) => {
+export const register = async (req: Request, res: Response) => {
   const data = registerSchema.parse(req.body);
 
   const result = await registerUser(data);
 
-  res.cookie(
-    env.cookieName,
-    result.token,
-    cookieOptions
-  );
+  res.cookie(env.cookieName, result.token, cookieOptions);
 
   res.status(201).json({
     success: true,
@@ -42,19 +34,12 @@ export const register = async (
   });
 };
 
-export const login = async (
-  req: Request,
-  res: Response
-) => {
+export const login = async (req: Request, res: Response) => {
   const data = loginSchema.parse(req.body);
 
   const result = await loginUser(data);
 
-  res.cookie(
-    env.cookieName,
-    result.token,
-    cookieOptions
-  );
+  res.cookie(env.cookieName, result.token, cookieOptions);
 
   res.status(200).json({
     success: true,
@@ -64,10 +49,7 @@ export const login = async (
   });
 };
 
-export const me = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const me = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.userId) {
     throw new AppError("Authentication required", 401);
   }
@@ -82,10 +64,7 @@ export const me = async (
   });
 };
 
-export const logout = (
-  _req: Request,
-  res: Response
-) => {
+export const logout = (_req: Request, res: Response) => {
   res.clearCookie(env.cookieName, {
     httpOnly: true,
     secure: env.nodeEnv === "production",
@@ -96,5 +75,17 @@ export const logout = (
   res.status(200).json({
     success: true,
     message: "Logged out successfully",
+  });
+};
+export const verifyEmail = async (req: Request, res: Response) => {
+  const data = verifyEmailOTPSchema.parse(req.body);
+
+  const user = await verifyEmailOTP(data);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      user,
+    },
   });
 };

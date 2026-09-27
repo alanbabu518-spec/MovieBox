@@ -203,6 +203,7 @@ export type UserWhereInput = {
   ratings?: Prisma.RatingListRelationFilter
   reviews?: Prisma.ReviewListRelationFilter
   watchHistory?: Prisma.WatchHistoryListRelationFilter
+  emailOtps?: Prisma.MovieBoxEmailOTPListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -218,6 +219,7 @@ export type UserOrderByWithRelationInput = {
   ratings?: Prisma.RatingOrderByRelationAggregateInput
   reviews?: Prisma.ReviewOrderByRelationAggregateInput
   watchHistory?: Prisma.WatchHistoryOrderByRelationAggregateInput
+  emailOtps?: Prisma.MovieBoxEmailOTPOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -236,6 +238,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   ratings?: Prisma.RatingListRelationFilter
   reviews?: Prisma.ReviewListRelationFilter
   watchHistory?: Prisma.WatchHistoryListRelationFilter
+  emailOtps?: Prisma.MovieBoxEmailOTPListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -277,6 +280,7 @@ export type UserCreateInput = {
   ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -292,6 +296,7 @@ export type UserUncheckedCreateInput = {
   ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -307,6 +312,7 @@ export type UserUpdateInput = {
   ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -322,6 +328,7 @@ export type UserUncheckedUpdateInput = {
   ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -401,6 +408,20 @@ export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
 
+export type UserCreateNestedOneWithoutEmailOtpsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutEmailOtpsInput, Prisma.UserUncheckedCreateWithoutEmailOtpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutEmailOtpsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutEmailOtpsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutEmailOtpsInput, Prisma.UserUncheckedCreateWithoutEmailOtpsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutEmailOtpsInput
+  upsert?: Prisma.UserUpsertWithoutEmailOtpsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutEmailOtpsInput, Prisma.UserUpdateWithoutEmailOtpsInput>, Prisma.UserUncheckedUpdateWithoutEmailOtpsInput>
+}
+
 export type UserCreateNestedOneWithoutWatchlistInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutWatchlistInput, Prisma.UserUncheckedCreateWithoutWatchlistInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutWatchlistInput
@@ -471,6 +492,82 @@ export type UserUpdateOneRequiredWithoutWatchHistoryNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutWatchHistoryInput, Prisma.UserUpdateWithoutWatchHistoryInput>, Prisma.UserUncheckedUpdateWithoutWatchHistoryInput>
 }
 
+export type UserCreateWithoutEmailOtpsInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  emailVerified?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  watchlist?: Prisma.WatchlistCreateNestedManyWithoutUserInput
+  favorites?: Prisma.FavoriteCreateNestedManyWithoutUserInput
+  ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
+  reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
+  watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutEmailOtpsInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  emailVerified?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  watchlist?: Prisma.WatchlistUncheckedCreateNestedManyWithoutUserInput
+  favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutUserInput
+  ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
+  reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
+  watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutEmailOtpsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutEmailOtpsInput, Prisma.UserUncheckedCreateWithoutEmailOtpsInput>
+}
+
+export type UserUpsertWithoutEmailOtpsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutEmailOtpsInput, Prisma.UserUncheckedUpdateWithoutEmailOtpsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutEmailOtpsInput, Prisma.UserUncheckedCreateWithoutEmailOtpsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutEmailOtpsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutEmailOtpsInput, Prisma.UserUncheckedUpdateWithoutEmailOtpsInput>
+}
+
+export type UserUpdateWithoutEmailOtpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  watchlist?: Prisma.WatchlistUpdateManyWithoutUserNestedInput
+  favorites?: Prisma.FavoriteUpdateManyWithoutUserNestedInput
+  ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
+  reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
+  watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutEmailOtpsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  watchlist?: Prisma.WatchlistUncheckedUpdateManyWithoutUserNestedInput
+  favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutUserNestedInput
+  ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
+  reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
+  watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+}
+
 export type UserCreateWithoutWatchlistInput = {
   id?: string
   name: string
@@ -483,6 +580,7 @@ export type UserCreateWithoutWatchlistInput = {
   ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWatchlistInput = {
@@ -497,6 +595,7 @@ export type UserUncheckedCreateWithoutWatchlistInput = {
   ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWatchlistInput = {
@@ -527,6 +626,7 @@ export type UserUpdateWithoutWatchlistInput = {
   ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWatchlistInput = {
@@ -541,6 +641,7 @@ export type UserUncheckedUpdateWithoutWatchlistInput = {
   ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutFavoritesInput = {
@@ -555,6 +656,7 @@ export type UserCreateWithoutFavoritesInput = {
   ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutFavoritesInput = {
@@ -569,6 +671,7 @@ export type UserUncheckedCreateWithoutFavoritesInput = {
   ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutFavoritesInput = {
@@ -599,6 +702,7 @@ export type UserUpdateWithoutFavoritesInput = {
   ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFavoritesInput = {
@@ -613,6 +717,7 @@ export type UserUncheckedUpdateWithoutFavoritesInput = {
   ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRatingsInput = {
@@ -627,6 +732,7 @@ export type UserCreateWithoutRatingsInput = {
   favorites?: Prisma.FavoriteCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRatingsInput = {
@@ -641,6 +747,7 @@ export type UserUncheckedCreateWithoutRatingsInput = {
   favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRatingsInput = {
@@ -671,6 +778,7 @@ export type UserUpdateWithoutRatingsInput = {
   favorites?: Prisma.FavoriteUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRatingsInput = {
@@ -685,6 +793,7 @@ export type UserUncheckedUpdateWithoutRatingsInput = {
   favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReviewsInput = {
@@ -699,6 +808,7 @@ export type UserCreateWithoutReviewsInput = {
   favorites?: Prisma.FavoriteCreateNestedManyWithoutUserInput
   ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReviewsInput = {
@@ -713,6 +823,7 @@ export type UserUncheckedCreateWithoutReviewsInput = {
   favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutUserInput
   ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
   watchHistory?: Prisma.WatchHistoryUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReviewsInput = {
@@ -743,6 +854,7 @@ export type UserUpdateWithoutReviewsInput = {
   favorites?: Prisma.FavoriteUpdateManyWithoutUserNestedInput
   ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewsInput = {
@@ -757,6 +869,7 @@ export type UserUncheckedUpdateWithoutReviewsInput = {
   favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutUserNestedInput
   ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
   watchHistory?: Prisma.WatchHistoryUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWatchHistoryInput = {
@@ -771,6 +884,7 @@ export type UserCreateWithoutWatchHistoryInput = {
   favorites?: Prisma.FavoriteCreateNestedManyWithoutUserInput
   ratings?: Prisma.RatingCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWatchHistoryInput = {
@@ -785,6 +899,7 @@ export type UserUncheckedCreateWithoutWatchHistoryInput = {
   favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutUserInput
   ratings?: Prisma.RatingUncheckedCreateNestedManyWithoutUserInput
   reviews?: Prisma.ReviewUncheckedCreateNestedManyWithoutUserInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWatchHistoryInput = {
@@ -815,6 +930,7 @@ export type UserUpdateWithoutWatchHistoryInput = {
   favorites?: Prisma.FavoriteUpdateManyWithoutUserNestedInput
   ratings?: Prisma.RatingUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWatchHistoryInput = {
@@ -829,6 +945,7 @@ export type UserUncheckedUpdateWithoutWatchHistoryInput = {
   favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutUserNestedInput
   ratings?: Prisma.RatingUncheckedUpdateManyWithoutUserNestedInput
   reviews?: Prisma.ReviewUncheckedUpdateManyWithoutUserNestedInput
+  emailOtps?: Prisma.MovieBoxEmailOTPUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -842,6 +959,7 @@ export type UserCountOutputType = {
   ratings: number
   reviews: number
   watchHistory: number
+  emailOtps: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -850,6 +968,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   ratings?: boolean | UserCountOutputTypeCountRatingsArgs
   reviews?: boolean | UserCountOutputTypeCountReviewsArgs
   watchHistory?: boolean | UserCountOutputTypeCountWatchHistoryArgs
+  emailOtps?: boolean | UserCountOutputTypeCountEmailOtpsArgs
 }
 
 /**
@@ -897,6 +1016,13 @@ export type UserCountOutputTypeCountWatchHistoryArgs<ExtArgs extends runtime.Typ
   where?: Prisma.WatchHistoryWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountEmailOtpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MovieBoxEmailOTPWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -911,6 +1037,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   ratings?: boolean | Prisma.User$ratingsArgs<ExtArgs>
   reviews?: boolean | Prisma.User$reviewsArgs<ExtArgs>
   watchHistory?: boolean | Prisma.User$watchHistoryArgs<ExtArgs>
+  emailOtps?: boolean | Prisma.User$emailOtpsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -951,6 +1078,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   ratings?: boolean | Prisma.User$ratingsArgs<ExtArgs>
   reviews?: boolean | Prisma.User$reviewsArgs<ExtArgs>
   watchHistory?: boolean | Prisma.User$watchHistoryArgs<ExtArgs>
+  emailOtps?: boolean | Prisma.User$emailOtpsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -964,6 +1092,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     ratings: Prisma.$RatingPayload<ExtArgs>[]
     reviews: Prisma.$ReviewPayload<ExtArgs>[]
     watchHistory: Prisma.$WatchHistoryPayload<ExtArgs>[]
+    emailOtps: Prisma.$MovieBoxEmailOTPPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1372,6 +1501,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   ratings<T extends Prisma.User$ratingsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ratingsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RatingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   reviews<T extends Prisma.User$reviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   watchHistory<T extends Prisma.User$watchHistoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$watchHistoryArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WatchHistoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  emailOtps<T extends Prisma.User$emailOtpsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$emailOtpsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MovieBoxEmailOTPPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1918,6 +2048,30 @@ export type User$watchHistoryArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.WatchHistoryScalarFieldEnum | Prisma.WatchHistoryScalarFieldEnum[]
+}
+
+/**
+ * User.emailOtps
+ */
+export type User$emailOtpsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MovieBoxEmailOTP
+   */
+  select?: Prisma.MovieBoxEmailOTPSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MovieBoxEmailOTP
+   */
+  omit?: Prisma.MovieBoxEmailOTPOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieBoxEmailOTPInclude<ExtArgs> | null
+  where?: Prisma.MovieBoxEmailOTPWhereInput
+  orderBy?: Prisma.MovieBoxEmailOTPOrderByWithRelationInput | Prisma.MovieBoxEmailOTPOrderByWithRelationInput[]
+  cursor?: Prisma.MovieBoxEmailOTPWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MovieBoxEmailOTPScalarFieldEnum | Prisma.MovieBoxEmailOTPScalarFieldEnum[]
 }
 
 /**
