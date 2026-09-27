@@ -4,6 +4,7 @@ import {
   logout,
   me,
   register,
+  resendOTP,
   verifyEmail,
 } from "../controllers/auth.controller.js";
 import { authenticate } from "../middleware/auth.js";
@@ -15,5 +16,6 @@ router.post("/login", login);
 router.post("/logout", logout);
 router.get("/me", authenticate, me);
 router.post("/verify-email", verifyEmail);
+router.post("/resend-otp", resendOTP);
 
 export default router;

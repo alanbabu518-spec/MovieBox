@@ -398,7 +398,6 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   User: 'User',
-  MovieBoxEmailOTP: 'MovieBoxEmailOTP',
   Movie: 'Movie',
   Watchlist: 'Watchlist',
   Favorite: 'Favorite',
@@ -420,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "movieBoxEmailOTP" | "movie" | "watchlist" | "favorite" | "rating" | "review" | "watchHistory"
+    modelProps: "user" | "movie" | "watchlist" | "favorite" | "rating" | "review" | "watchHistory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -495,80 +494,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.UserCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserCountAggregateOutputType> | number
-        }
-      }
-    }
-    MovieBoxEmailOTP: {
-      payload: Prisma.$MovieBoxEmailOTPPayload<ExtArgs>
-      fields: Prisma.MovieBoxEmailOTPFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.MovieBoxEmailOTPFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.MovieBoxEmailOTPFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        findFirst: {
-          args: Prisma.MovieBoxEmailOTPFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.MovieBoxEmailOTPFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        findMany: {
-          args: Prisma.MovieBoxEmailOTPFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>[]
-        }
-        create: {
-          args: Prisma.MovieBoxEmailOTPCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        createMany: {
-          args: Prisma.MovieBoxEmailOTPCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.MovieBoxEmailOTPCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>[]
-        }
-        delete: {
-          args: Prisma.MovieBoxEmailOTPDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        update: {
-          args: Prisma.MovieBoxEmailOTPUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        deleteMany: {
-          args: Prisma.MovieBoxEmailOTPDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.MovieBoxEmailOTPUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.MovieBoxEmailOTPUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>[]
-        }
-        upsert: {
-          args: Prisma.MovieBoxEmailOTPUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$MovieBoxEmailOTPPayload>
-        }
-        aggregate: {
-          args: Prisma.MovieBoxEmailOTPAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateMovieBoxEmailOTP>
-        }
-        groupBy: {
-          args: Prisma.MovieBoxEmailOTPGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.MovieBoxEmailOTPGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.MovieBoxEmailOTPCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.MovieBoxEmailOTPCountAggregateOutputType> | number
         }
       }
     }
@@ -1068,18 +993,6 @@ export const UserScalarFieldEnum = {
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
-export const MovieBoxEmailOTPScalarFieldEnum = {
-  id: 'id',
-  codeHash: 'codeHash',
-  userId: 'userId',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
-  attempts: 'attempts'
-} as const
-
-export type MovieBoxEmailOTPScalarFieldEnum = (typeof MovieBoxEmailOTPScalarFieldEnum)[keyof typeof MovieBoxEmailOTPScalarFieldEnum]
-
-
 export const MovieScalarFieldEnum = {
   id: 'id',
   tmdbId: 'tmdbId',
@@ -1392,7 +1305,6 @@ export interface PrismaClientOptionsWithAdapter extends PrismaClientBaseOptions 
 export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaClientOptionsWithAdapter
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
-  movieBoxEmailOTP?: Prisma.MovieBoxEmailOTPOmit
   movie?: Prisma.MovieOmit
   watchlist?: Prisma.WatchlistOmit
   favorite?: Prisma.FavoriteOmit

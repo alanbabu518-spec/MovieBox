@@ -22,23 +22,7 @@ model User {
   reviews       Review[]
   watchHistory  WatchHistory[]
 
-  emailOtps     MovieBoxEmailOTP[]
-
   @@index([email])
-}
-
-model MovieBoxEmailOTP {
-  id         String   @id @default(uuid())
-  codeHash   String
-  userId     String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  attempts   Int      @default(0)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
 }
 
 model Movie {

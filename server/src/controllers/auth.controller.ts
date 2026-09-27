@@ -3,13 +3,18 @@ import {
   getCurrentUser,
   loginUser,
   registerUser,
+  resendEmailOTP,
   verifyEmailOTP,
 } from "../services/auth.service.js";
-import { loginSchema, registerSchema } from "../validators/auth.validator.js";
+import {
+  loginSchema,
+  registerSchema,
+  resendEmailOTPSchema,
+  verifyEmailOTPSchema,
+} from "../validators/auth.validator.js";
 import { AuthenticatedRequest } from "../types/auth.js";
 import { AppError } from "../utils/appError.js";
 import { env } from "../config/env.js";
-import { verifyEmailOTPSchema } from "../validators/auth.validator.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -21,22 +26,19 @@ const cookieOptions = {
 
 export const register = async (req: Request, res: Response) => {
   const data = registerSchema.parse(req.body);
-
   const result = await registerUser(data);
-
-  res.cookie(env.cookieName, result.token, cookieOptions);
 
   res.status(201).json({
     success: true,
     data: {
-      user: result.user,
+      email: result.email,
+      message: result.message,
     },
   });
 };
 
 export const login = async (req: Request, res: Response) => {
   const data = loginSchema.parse(req.body);
-
   const result = await loginUser(data);
 
   res.cookie(env.cookieName, result.token, cookieOptions);
@@ -77,15 +79,28 @@ export const logout = (_req: Request, res: Response) => {
     message: "Logged out successfully",
   });
 };
+
 export const verifyEmail = async (req: Request, res: Response) => {
   const data = verifyEmailOTPSchema.parse(req.body);
+  const result = await verifyEmailOTP(data);
 
-  const user = await verifyEmailOTP(data);
+  res.cookie(env.cookieName, result.token, cookieOptions);
 
   res.status(200).json({
     success: true,
     data: {
-      user,
+      user: result.user,
     },
+  });
+};
+
+export const resendOTP = async (req: Request, res: Response) => {
+  const data = resendEmailOTPSchema.parse(req.body);
+
+  await resendEmailOTP(data.email);
+
+  res.status(200).json({
+    success: true,
+    message: "OTP sent successfully",
   });
 };

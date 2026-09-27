@@ -1,11 +1,16 @@
 import bcrypt from "bcryptjs";
-import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
 import { AppError } from "../utils/appError.js";
 import { generateEmailOTP } from "../utils/emailOtp.js";
 import { sendVerificationEmail } from "./email.service.js";
+import {
+  createPendingRegistration,
+  deletePendingRegistration,
+  getPendingRegistration,
+  verifyPendingOTP,
+} from "./pendingRegistration.service.js";
 
 type RegisterInput = {
   name: string;
@@ -42,13 +47,54 @@ export const registerUser = async ({
     throw new AppError("Email already registered", 409);
   }
 
+  const existingPendingRegistration = await getPendingRegistration(email).catch(
+    () => null
+  );
+
+  if (existingPendingRegistration) {
+    throw new AppError(
+      "A verification OTP was already sent. Please use resend OTP.",
+      409
+    );
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
+  const otp = generateEmailOTP();
+
+  await createPendingRegistration({
+    name,
+    email,
+    passwordHash,
+    otp: otp.code,
+  });
+
+  await sendVerificationEmail({
+    email,
+    name,
+    otp: otp.code,
+  });
+
+  return {
+    email,
+    message: "OTP sent successfully",
+  };
+};
+
+export const verifyEmailOTP = async ({
+  email,
+  otp,
+}: VerifyEmailOTPInput) => {
+  const pendingRegistration = await verifyPendingOTP(
+    email,
+    otp
+  );
 
   const user = await prisma.user.create({
     data: {
-      name,
-      email,
-      passwordHash,
+      name: pendingRegistration.name,
+      email: pendingRegistration.email,
+      passwordHash: pendingRegistration.passwordHash,
+      emailVerified: true,
     },
     select: {
       id: true,
@@ -59,21 +105,7 @@ export const registerUser = async ({
     },
   });
 
-  const otp = generateEmailOTP();
-
-  await prisma.movieBoxEmailOTP.create({
-    data: {
-      codeHash: otp.codeHash,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    },
-  });
-
-  await sendVerificationEmail({
-    email: user.email,
-    name: user.name,
-    otp: otp.code,
-  });
+  await deletePendingRegistration(email);
 
   return {
     user,
@@ -81,77 +113,23 @@ export const registerUser = async ({
   };
 };
 
-export const verifyEmailOTP = async ({
-  email,
-  otp,
-}: VerifyEmailOTPInput) => {
-  const user = await prisma.user.findUnique({
-    where: { email },
+export const resendEmailOTP = async (email: string) => {
+  const pendingRegistration = await getPendingRegistration(email);
+
+  const otp = generateEmailOTP();
+
+  await createPendingRegistration({
+    name: pendingRegistration.name,
+    email: pendingRegistration.email,
+    passwordHash: pendingRegistration.passwordHash,
+    otp: otp.code,
   });
 
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-  if (user.emailVerified) {
-    throw new AppError("Email is already verified", 400);
-  }
-
-  const otpRecord = await prisma.movieBoxEmailOTP.findFirst({
-    where: {
-      userId: user.id,
-      expiresAt: {
-        gt: new Date(),
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
+  await sendVerificationEmail({
+    email: pendingRegistration.email,
+    name: pendingRegistration.name,
+    otp: otp.code,
   });
-
-  if (!otpRecord) {
-    throw new AppError("OTP expired or not found", 400);
-  }
-
-  if (otpRecord.attempts >= 5) {
-    throw new AppError("Too many OTP attempts", 429);
-  }
-
-  const codeHash = crypto
-    .createHash("sha256")
-    .update(otp)
-    .digest("hex");
-
-  if (codeHash !== otpRecord.codeHash) {
-    await prisma.movieBoxEmailOTP.update({
-      where: { id: otpRecord.id },
-      data: {
-        attempts: {
-          increment: 1,
-        },
-      },
-    });
-
-    throw new AppError("Invalid OTP", 400);
-  }
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: true,
-      },
-    }),
-    prisma.movieBoxEmailOTP.delete({
-      where: { id: otpRecord.id },
-    }),
-  ]);
-
-  return {
-    id: user.id,
-    email: user.email,
-    emailVerified: true,
-  };
 };
 
 export const loginUser = async ({
@@ -173,6 +151,13 @@ export const loginUser = async ({
 
   if (!passwordMatches) {
     throw new AppError("Invalid email or password", 401);
+  }
+
+  if (!user.emailVerified) {
+    throw new AppError(
+      "Please verify your email before logging in",
+      403
+    );
   }
 
   return {
