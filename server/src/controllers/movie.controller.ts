@@ -3,12 +3,11 @@ import {
   getLatestMovies,
   getTrendingMovies,
   getUpcomingMovies,
+  searchMovies,
 } from "../services/tmdb.service.js";
+import { searchMoviesSchema } from "../validators/movie.validator.js";
 
-export const getTrending = async (
-  _req: Request,
-  res: Response,
-) => {
+export const getTrending = async (_req: Request, res: Response) => {
   const movies = await getTrendingMovies();
 
   res.status(200).json({
@@ -17,10 +16,7 @@ export const getTrending = async (
   });
 };
 
-export const getLatest = async (
-  _req: Request,
-  res: Response,
-) => {
+export const getLatest = async (_req: Request, res: Response) => {
   const movies = await getLatestMovies();
 
   res.status(200).json({
@@ -29,11 +25,19 @@ export const getLatest = async (
   });
 };
 
-export const getUpcoming = async (
-  _req: Request,
-  res: Response,
-) => {
+export const getUpcoming = async (_req: Request, res: Response) => {
   const movies = await getUpcomingMovies();
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const search = async (req: Request, res: Response) => {
+  const { query, page } = searchMoviesSchema.parse(req.query);
+
+  const movies = await searchMovies(query, page);
 
   res.status(200).json({
     success: true,

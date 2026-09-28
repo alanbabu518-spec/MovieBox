@@ -93,3 +93,32 @@ export const getUpcomingMovies = async () => {
     handleTMDBError(error);
   }
 };
+
+export const searchMovies = async (
+  query: string,
+  page = 1,
+) => {
+  try {
+    const response =
+      await tmdbClient.get<TMDBMovieListResponse>(
+        "/search/movie",
+        {
+          params: {
+            query,
+            page,
+          },
+        },
+      );
+
+    return {
+      page: response.data.page,
+      totalPages: response.data.total_pages,
+      totalResults: response.data.total_results,
+      movies: response.data.results.map(
+        normalizeTMDBMovie,
+      ),
+    };
+  } catch (error) {
+    handleTMDBError(error);
+  }
+};
