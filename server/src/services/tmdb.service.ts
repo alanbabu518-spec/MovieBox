@@ -2,9 +2,9 @@ import axios from "axios";
 import { tmdbConfig } from "../config/tmdb.js";
 import { cacheConfig } from "../config/cache.js";
 import { redis } from "../config/redis.js";
-import { AppError } from "../utils/appError.js";
 import { normalizeTMDBMovie } from "../utils/movieNormalizer.js";
 import { TMDBMovieListResponse } from "../types/tmdb.js";
+import { handleTMDBError } from "./tmdbRequest.service.js";
 
 const TRENDING_MOVIES_CACHE_KEY =
   "moviebox:cache:movies:trending";
@@ -50,32 +50,46 @@ export const getTrendingMovies = async () => {
 
     return result;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        throw new AppError(
-          "TMDB authentication failed",
-          502,
-        );
-      }
+    handleTMDBError(error);
+  }
+};
 
-      if (error.response?.status === 429) {
-        throw new AppError(
-          "TMDB rate limit exceeded",
-          503,
-        );
-      }
+export const getLatestMovies = async () => {
+  try {
+    const response =
+      await tmdbClient.get<TMDBMovieListResponse>(
+        "/movie/now_playing",
+      );
 
-      if (error.code === "ECONNABORTED") {
-        throw new AppError(
-          "TMDB request timed out",
-          504,
-        );
-      }
-    }
+    return {
+      page: response.data.page,
+      totalPages: response.data.total_pages,
+      totalResults: response.data.total_results,
+      movies: response.data.results.map(
+        normalizeTMDBMovie,
+      ),
+    };
+  } catch (error) {
+    handleTMDBError(error);
+  }
+};
 
-    throw new AppError(
-      "Failed to fetch movies from TMDB",
-      502,
-    );
+export const getUpcomingMovies = async () => {
+  try {
+    const response =
+      await tmdbClient.get<TMDBMovieListResponse>(
+        "/movie/upcoming",
+      );
+
+    return {
+      page: response.data.page,
+      totalPages: response.data.total_pages,
+      totalResults: response.data.total_results,
+      movies: response.data.results.map(
+        normalizeTMDBMovie,
+      ),
+    };
+  } catch (error) {
+    handleTMDBError(error);
   }
 };

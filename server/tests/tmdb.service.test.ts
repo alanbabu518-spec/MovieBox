@@ -27,8 +27,7 @@ vi.mock("../src/config/cache.js", () => ({
 }));
 
 vi.mock("axios", async () => {
-  const actual =
-    await vi.importActual<typeof import("axios")>("axios");
+  const actual = await vi.importActual<typeof import("axios")>("axios");
 
   return {
     ...actual,
@@ -36,14 +35,12 @@ vi.mock("axios", async () => {
       ...actual.default,
       create: vi.fn(() => tmdbClientMock),
       isAxiosError: (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "isAxiosError" in error,
+        typeof error === "object" && error !== null && "isAxiosError" in error,
     },
   };
 });
 
-const { getTrendingMovies } =
+const { getTrendingMovies, getLatestMovies, getUpcomingMovies } =
   await import("../src/services/tmdb.service.js");
 
 describe("TMDB service", () => {
@@ -86,9 +83,7 @@ describe("TMDB service", () => {
 
     const result = await getTrendingMovies();
 
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/trending/movie/week",
-    );
+    expect(tmdbClientMock.get).toHaveBeenCalledWith("/trending/movie/week");
 
     expect(result).toEqual({
       page: 1,
@@ -166,9 +161,7 @@ describe("TMDB service", () => {
       ],
     };
 
-    redisMock.get.mockResolvedValue(
-      JSON.stringify(cachedMovies),
-    );
+    redisMock.get.mockResolvedValue(JSON.stringify(cachedMovies));
 
     const result = await getTrendingMovies();
 
@@ -215,9 +208,7 @@ describe("TMDB service", () => {
       "moviebox:cache:movies:trending",
     );
 
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/trending/movie/week",
-    );
+    expect(tmdbClientMock.get).toHaveBeenCalledWith("/trending/movie/week");
 
     expect(redisMock.set).toHaveBeenCalledWith(
       "moviebox:cache:movies:trending",
@@ -241,9 +232,7 @@ describe("TMDB service", () => {
 
     tmdbClientMock.get.mockRejectedValue(error);
 
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
+    await expect(getTrendingMovies()).rejects.toMatchObject({
       message: "TMDB authentication failed",
       statusCode: 502,
     });
@@ -261,9 +250,7 @@ describe("TMDB service", () => {
 
     tmdbClientMock.get.mockRejectedValue(error);
 
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
+    await expect(getTrendingMovies()).rejects.toMatchObject({
       message: "TMDB rate limit exceeded",
       statusCode: 503,
     });
@@ -279,9 +266,7 @@ describe("TMDB service", () => {
 
     tmdbClientMock.get.mockRejectedValue(error);
 
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
+    await expect(getTrendingMovies()).rejects.toMatchObject({
       message: "TMDB request timed out",
       statusCode: 504,
     });
@@ -290,15 +275,109 @@ describe("TMDB service", () => {
   it("converts unexpected TMDB errors to AppError", async () => {
     redisMock.get.mockResolvedValue(null);
 
-    tmdbClientMock.get.mockRejectedValue(
-      new Error("Network failure"),
-    );
+    tmdbClientMock.get.mockRejectedValue(new Error("Network failure"));
 
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
+    await expect(getTrendingMovies()).rejects.toMatchObject({
       message: "Failed to fetch movies from TMDB",
       statusCode: 502,
+    });
+  });
+  it("returns normalized latest movies from TMDB", async () => {
+    redisMock.get.mockResolvedValue(null);
+
+    tmdbClientMock.get.mockResolvedValue({
+      data: {
+        page: 1,
+        total_pages: 5,
+        total_results: 50,
+        results: [
+          {
+            id: 10,
+            title: "Latest Movie",
+            overview: "Latest movie overview",
+            poster_path: "/latest.jpg",
+            backdrop_path: "/latest-backdrop.jpg",
+            release_date: "2026-09-20",
+            vote_average: 8,
+            vote_count: 500,
+            popularity: 200,
+            original_language: "en",
+          },
+        ],
+      },
+    });
+
+    const result = await getLatestMovies();
+
+    expect(tmdbClientMock.get).toHaveBeenCalledWith("/movie/now_playing");
+
+    expect(result).toEqual({
+      page: 1,
+      totalPages: 5,
+      totalResults: 50,
+      movies: [
+        {
+          id: 10,
+          title: "Latest Movie",
+          overview: "Latest movie overview",
+          posterPath: "/latest.jpg",
+          backdropPath: "/latest-backdrop.jpg",
+          releaseDate: "2026-09-20",
+          rating: 8,
+          voteCount: 500,
+          popularity: 200,
+          originalLanguage: "en",
+        },
+      ],
+    });
+  });
+  it("returns normalized upcoming movies from TMDB", async () => {
+    redisMock.get.mockResolvedValue(null);
+
+    tmdbClientMock.get.mockResolvedValue({
+      data: {
+        page: 1,
+        total_pages: 3,
+        total_results: 30,
+        results: [
+          {
+            id: 20,
+            title: "Upcoming Movie",
+            overview: "Upcoming movie overview",
+            poster_path: "/upcoming.jpg",
+            backdrop_path: "/upcoming-backdrop.jpg",
+            release_date: "2026-12-25",
+            vote_average: 7.5,
+            vote_count: 300,
+            popularity: 150,
+            original_language: "en",
+          },
+        ],
+      },
+    });
+
+    const result = await getUpcomingMovies();
+
+    expect(tmdbClientMock.get).toHaveBeenCalledWith("/movie/upcoming");
+
+    expect(result).toEqual({
+      page: 1,
+      totalPages: 3,
+      totalResults: 30,
+      movies: [
+        {
+          id: 20,
+          title: "Upcoming Movie",
+          overview: "Upcoming movie overview",
+          posterPath: "/upcoming.jpg",
+          backdropPath: "/upcoming-backdrop.jpg",
+          releaseDate: "2026-12-25",
+          rating: 7.5,
+          voteCount: 300,
+          popularity: 150,
+          originalLanguage: "en",
+        },
+      ],
     });
   });
 });
