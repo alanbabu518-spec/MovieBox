@@ -17,3 +17,81 @@ export type TMDBMovieListResponse = {
   total_pages: number;
   total_results: number;
 };
+
+export type TMDBMovieDetails = TMDBMovie & {
+  genres: {
+    id: number;
+    name: string;
+  }[];
+  runtime: number | null;
+  status: string;
+  tagline: string | null;
+};
+
+export type TMDBCredits = {
+  cast: {
+    id: number;
+    name: string;
+    character: string;
+    profile_path: string | null;
+  }[];
+  crew: {
+    id: number;
+    name: string;
+    job: string;
+    department: string;
+    profile_path: string | null;
+  }[];
+};
+
+export type TMDBVideo = {
+  id: string;
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+  official: boolean;
+};
+
+export type TMDBVideosResponse = {
+  results: TMDBVideo[];
+};
+
+export type TMDBImagesResponse = {
+  backdrops: {
+    file_path: string;
+    width: number;
+    height: number;
+  }[];
+  posters: {
+    file_path: string;
+    width: number;
+    height: number;
+  }[];
+};
+
+export type TMDBSimilarMoviesResponse = {
+  page: number;
+  results: TMDBMovie[];
+  total_pages: number;
+  total_results: number;
+};
+
+export type TMDBWatchProvider = {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+  display_priority: number;
+};
+
+export type TMDBWatchProviderCountry = {
+  link: string;
+  flatrate?: TMDBWatchProvider[];
+  rent?: TMDBWatchProvider[];
+  buy?: TMDBWatchProvider[];
+};
+
+export type TMDBWatchProvidersResponse = {
+  id: number;
+  results: Record<string, TMDBWatchProviderCountry>;
+};
