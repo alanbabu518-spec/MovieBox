@@ -12,6 +12,6 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true
   },
-  "include": ["src"],
+  "include": ["src", "modules/auth/auth.controller.ts", "modules/auth/auth.routes.ts", "modules/auth/auth.service.ts", "modules/auth/auth.validator.ts", "modules/auth/pendingRegistration.service.ts", "modules/movies/movie.routes.ts", "modules/movies/movie.service.ts", "modules/movies/movie.validator.ts", "modules/ratings/rating.controller.ts", "modules/ratings/rating.routes.ts", "modules/ratings/rating.service.ts", "modules/ratings/rating.validator.ts", "modules/reviews/review.service.ts", "modules/reviews/review.routes.ts", "modules/reviews/review.validator.ts", "modules/recommendations/recommendation.controller.ts", "modules/recommendations/recommendation.routes.ts", "modules/recommendations/recommendation.service.ts", "modules/ai/ai.controller.ts", "modules/ai/ai.routes.ts", "modules/ai/ai.service.ts"],
   "exclude": ["node_modules", "dist"]
 }

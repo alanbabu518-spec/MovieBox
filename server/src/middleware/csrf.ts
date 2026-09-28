@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { env } from "../config/env.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../shared/utils/appError.js";
 
 const unsafeMethods = new Set([
   "POST",

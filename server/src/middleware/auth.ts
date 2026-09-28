@@ -1,8 +1,8 @@
 import { NextFunction, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { AppError } from "../utils/appError.js";
-import { AuthenticatedRequest } from "../types/auth.js";
+import { AppError } from "../shared/utils/appError.js";
+import { AuthenticatedRequest } from "../shared/types/auth.js";
 
 export const authenticate = (
   req: AuthenticatedRequest,
