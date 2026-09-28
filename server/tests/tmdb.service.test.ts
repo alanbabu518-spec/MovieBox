@@ -19,7 +19,10 @@ vi.mock("axios", async () => {
     default: {
       ...actual.default,
       create: vi.fn(() => tmdbClientMock),
-      isAxiosError: actual.default.isAxiosError,
+      isAxiosError: (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "isAxiosError" in error,
     },
   };
 });
@@ -32,13 +35,23 @@ describe("TMDB service", () => {
     vi.clearAllMocks();
   });
 
-  it("returns trending movies from TMDB", async () => {
+  it("returns normalized trending movies from TMDB", async () => {
     const response = {
       page: 1,
+      total_pages: 10,
+      total_results: 200,
       results: [
         {
           id: 1,
           title: "Test Movie",
+          overview: "Test overview",
+          poster_path: "/poster.jpg",
+          backdrop_path: "/backdrop.jpg",
+          release_date: "2026-01-01",
+          vote_average: 8.5,
+          vote_count: 1000,
+          popularity: 500,
+          original_language: "en",
         },
       ],
     };
@@ -53,7 +66,55 @@ describe("TMDB service", () => {
       "/trending/movie/week",
     );
 
-    expect(result).toEqual(response);
+    expect(result).toEqual({
+      page: 1,
+      totalPages: 10,
+      totalResults: 200,
+      movies: [
+        {
+          id: 1,
+          title: "Test Movie",
+          overview: "Test overview",
+          posterPath: "/poster.jpg",
+          backdropPath: "/backdrop.jpg",
+          releaseDate: "2026-01-01",
+          rating: 8.5,
+          voteCount: 1000,
+          popularity: 500,
+          originalLanguage: "en",
+        },
+      ],
+    });
+  });
+
+  it("handles missing release dates", async () => {
+    tmdbClientMock.get.mockResolvedValue({
+      data: {
+        page: 1,
+        total_pages: 1,
+        total_results: 1,
+        results: [
+          {
+            id: 1,
+            title: "Test Movie",
+            overview: "Test overview",
+            poster_path: null,
+            backdrop_path: null,
+            release_date: "",
+            vote_average: 7,
+            vote_count: 100,
+            popularity: 50,
+            original_language: "en",
+          },
+        ],
+      },
+    });
+
+    const result = await getTrendingMovies();
+
+    expect(result.movies[0].releaseDate).toBeNull();
+    expect(result.movies[0].posterPath).toBeNull();
+    expect(result.movies[0].backdropPath).toBeNull();
   });
 
   it("converts TMDB authentication errors to AppError", async () => {

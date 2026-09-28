@@ -1,6 +1,8 @@
 import axios from "axios";
 import { tmdbConfig } from "../config/tmdb.js";
 import { AppError } from "../utils/appError.js";
+import { normalizeTMDBMovie } from "../utils/movieNormalizer.js";
+import { TMDBMovieListResponse } from "../types/tmdb.js";
 
 export const tmdbClient = axios.create({
   baseURL: tmdbConfig.baseUrl,
@@ -12,9 +14,19 @@ export const tmdbClient = axios.create({
 
 export const getTrendingMovies = async () => {
   try {
-    const response = await tmdbClient.get("/trending/movie/week");
+    const response =
+      await tmdbClient.get<TMDBMovieListResponse>(
+        "/trending/movie/week",
+      );
 
-    return response.data;
+    return {
+      page: response.data.page,
+      totalPages: response.data.total_pages,
+      totalResults: response.data.total_results,
+      movies: response.data.results.map(
+        normalizeTMDBMovie,
+      ),
+    };
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
