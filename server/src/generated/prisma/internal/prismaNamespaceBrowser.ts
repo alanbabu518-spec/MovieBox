@@ -138,6 +138,7 @@ export type RatingScalarFieldEnum = (typeof RatingScalarFieldEnum)[keyof typeof 
 export const ReviewScalarFieldEnum = {
   id: 'id',
   content: 'content',
+  rating: 'rating',
   userId: 'userId',
   movieId: 'movieId',
   createdAt: 'createdAt',

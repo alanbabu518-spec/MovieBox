@@ -89,6 +89,7 @@ model Rating {
 model Review {
   id        String   @id @default(uuid())
   content   String
+  rating    Int
   userId    String
   movieId   String
   createdAt DateTime @default(now())
