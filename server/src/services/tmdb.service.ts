@@ -1,8 +1,13 @@
 import axios from "axios";
 import { tmdbConfig } from "../config/tmdb.js";
+import { cacheConfig } from "../config/cache.js";
+import { redis } from "../config/redis.js";
 import { AppError } from "../utils/appError.js";
 import { normalizeTMDBMovie } from "../utils/movieNormalizer.js";
 import { TMDBMovieListResponse } from "../types/tmdb.js";
+
+const TRENDING_MOVIES_CACHE_KEY =
+  "moviebox:cache:movies:trending";
 
 export const tmdbClient = axios.create({
   baseURL: tmdbConfig.baseUrl,
@@ -13,13 +18,21 @@ export const tmdbClient = axios.create({
 });
 
 export const getTrendingMovies = async () => {
+  const cachedMovies = await redis.get(
+    TRENDING_MOVIES_CACHE_KEY,
+  );
+
+  if (cachedMovies) {
+    return JSON.parse(cachedMovies);
+  }
+
   try {
     const response =
       await tmdbClient.get<TMDBMovieListResponse>(
         "/trending/movie/week",
       );
 
-    return {
+    const result = {
       page: response.data.page,
       totalPages: response.data.total_pages,
       totalResults: response.data.total_results,
@@ -27,6 +40,15 @@ export const getTrendingMovies = async () => {
         normalizeTMDBMovie,
       ),
     };
+
+    await redis.set(
+      TRENDING_MOVIES_CACHE_KEY,
+      JSON.stringify(result),
+      "EX",
+      cacheConfig.trendingMoviesTtl,
+    );
+
+    return result;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {

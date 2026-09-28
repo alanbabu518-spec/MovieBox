@@ -4,6 +4,11 @@ const tmdbClientMock = {
   get: vi.fn(),
 };
 
+const redisMock = {
+  get: vi.fn(),
+  set: vi.fn(),
+};
+
 vi.mock("../src/config/tmdb.js", () => ({
   tmdbConfig: {
     baseUrl: "https://api.example.com",
@@ -11,8 +16,19 @@ vi.mock("../src/config/tmdb.js", () => ({
   },
 }));
 
+vi.mock("../src/config/redis.js", () => ({
+  redis: redisMock,
+}));
+
+vi.mock("../src/config/cache.js", () => ({
+  cacheConfig: {
+    trendingMoviesTtl: 1800,
+  },
+}));
+
 vi.mock("axios", async () => {
-  const actual = await vi.importActual<typeof import("axios")>("axios");
+  const actual =
+    await vi.importActual<typeof import("axios")>("axios");
 
   return {
     ...actual,
@@ -33,9 +49,15 @@ const { getTrendingMovies } =
 describe("TMDB service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    tmdbClientMock.get.mockReset();
+    redisMock.get.mockReset();
+    redisMock.set.mockReset();
   });
 
   it("returns normalized trending movies from TMDB", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     const response = {
       page: 1,
       total_pages: 10,
@@ -59,6 +81,8 @@ describe("TMDB service", () => {
     tmdbClientMock.get.mockResolvedValue({
       data: response,
     });
+
+    redisMock.set.mockResolvedValue("OK");
 
     const result = await getTrendingMovies();
 
@@ -88,6 +112,8 @@ describe("TMDB service", () => {
   });
 
   it("handles missing release dates", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     tmdbClientMock.get.mockResolvedValue({
       data: {
         page: 1,
@@ -110,6 +136,8 @@ describe("TMDB service", () => {
       },
     });
 
+    redisMock.set.mockResolvedValue("OK");
+
     const result = await getTrendingMovies();
 
     expect(result.movies[0].releaseDate).toBeNull();
@@ -117,7 +145,93 @@ describe("TMDB service", () => {
     expect(result.movies[0].backdropPath).toBeNull();
   });
 
+  it("returns cached movies without calling TMDB", async () => {
+    const cachedMovies = {
+      page: 1,
+      totalPages: 5,
+      totalResults: 100,
+      movies: [
+        {
+          id: 1,
+          title: "Cached Movie",
+          overview: "Cached overview",
+          posterPath: "/poster.jpg",
+          backdropPath: "/backdrop.jpg",
+          releaseDate: "2026-01-01",
+          rating: 8,
+          voteCount: 500,
+          popularity: 200,
+          originalLanguage: "en",
+        },
+      ],
+    };
+
+    redisMock.get.mockResolvedValue(
+      JSON.stringify(cachedMovies),
+    );
+
+    const result = await getTrendingMovies();
+
+    expect(redisMock.get).toHaveBeenCalledWith(
+      "moviebox:cache:movies:trending",
+    );
+
+    expect(tmdbClientMock.get).not.toHaveBeenCalled();
+
+    expect(redisMock.set).not.toHaveBeenCalled();
+
+    expect(result).toEqual(cachedMovies);
+  });
+
+  it("fetches from TMDB and caches the result on a cache miss", async () => {
+    redisMock.get.mockResolvedValue(null);
+    redisMock.set.mockResolvedValue("OK");
+
+    tmdbClientMock.get.mockResolvedValue({
+      data: {
+        page: 1,
+        total_pages: 10,
+        total_results: 200,
+        results: [
+          {
+            id: 1,
+            title: "Test Movie",
+            overview: "Test overview",
+            poster_path: "/poster.jpg",
+            backdrop_path: "/backdrop.jpg",
+            release_date: "2026-01-01",
+            vote_average: 8.5,
+            vote_count: 1000,
+            popularity: 500,
+            original_language: "en",
+          },
+        ],
+      },
+    });
+
+    const result = await getTrendingMovies();
+
+    expect(redisMock.get).toHaveBeenCalledWith(
+      "moviebox:cache:movies:trending",
+    );
+
+    expect(tmdbClientMock.get).toHaveBeenCalledWith(
+      "/trending/movie/week",
+    );
+
+    expect(redisMock.set).toHaveBeenCalledWith(
+      "moviebox:cache:movies:trending",
+      JSON.stringify(result),
+      "EX",
+      1800,
+    );
+
+    expect(result.movies).toHaveLength(1);
+  });
+
   it("converts TMDB authentication errors to AppError", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     const error = {
       response: {
         status: 401,
@@ -136,6 +250,8 @@ describe("TMDB service", () => {
   });
 
   it("converts TMDB rate limit errors to AppError", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     const error = {
       response: {
         status: 429,
@@ -154,6 +270,8 @@ describe("TMDB service", () => {
   });
 
   it("converts TMDB timeout errors to AppError", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     const error = {
       code: "ECONNABORTED",
       isAxiosError: true,
@@ -170,6 +288,8 @@ describe("TMDB service", () => {
   });
 
   it("converts unexpected TMDB errors to AppError", async () => {
+    redisMock.get.mockResolvedValue(null);
+
     tmdbClientMock.get.mockRejectedValue(
       new Error("Network failure"),
     );
