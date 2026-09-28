@@ -5,7 +5,12 @@ import {
   getUpcomingMovies,
   searchMovies,
 } from "../services/tmdb.service.js";
-import { searchMoviesSchema } from "../validators/movie.validator.js";
+import {
+  autocompleteMoviesSchema,
+  searchMoviesSchema,
+} from "../validators/movie.validator.js";
+import { getMovieSuggestions } from "../services/autocomplete.service.js";
+import { ingestMovieCatalog } from "../services/movieCatalog.service.js";
 
 export const getTrending = async (_req: Request, res: Response) => {
   const movies = await getTrendingMovies();
@@ -42,5 +47,35 @@ export const search = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     data: movies,
+  });
+};
+
+export const autocomplete = (
+  req: Request,
+  res: Response,
+) => {
+  const { query, limit } =
+    autocompleteMoviesSchema.parse(req.query);
+
+  const suggestions = getMovieSuggestions(
+    query,
+    limit,
+  );
+
+  res.status(200).json({
+    success: true,
+    data: suggestions,
+  });
+};
+
+export const ingestCatalog = async (
+  _req: Request,
+  res: Response,
+) => {
+  const result = await ingestMovieCatalog(5);
+
+  res.status(200).json({
+    success: true,
+    data: result,
   });
 };

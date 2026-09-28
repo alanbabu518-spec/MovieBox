@@ -14,6 +14,7 @@ import {
   registerRateLimiter,
   resendOtpRateLimiter,
 } from "../middleware/authRateLimit.js";
+import { ingestCatalog } from "../controllers/movie.controller.js";
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.post("/logout", authenticate, logout);
 router.get("/me", authenticate, me);
 router.post("/verify-email", otpRateLimiter, verifyEmail);
 router.post("/resend-otp", resendOtpRateLimiter, resendOTP);
+router.post("/ingest", ingestCatalog);
 
 export default router;

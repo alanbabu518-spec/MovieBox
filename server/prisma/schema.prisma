@@ -16,11 +16,11 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  watchlist     Watchlist[]
-  favorites     Favorite[]
-  ratings       Rating[]
-  reviews       Review[]
-  watchHistory  WatchHistory[]
+  watchlist    Watchlist[]
+  favorites    Favorite[]
+  ratings      Rating[]
+  reviews      Review[]
+  watchHistory WatchHistory[]
 
   @@index([email])
 }
@@ -40,8 +40,6 @@ model Movie {
   ratings       Rating[]
   reviews       Review[]
   watchHistory  WatchHistory[]
-
-  @@index([tmdbId])
 }
 
 model Watchlist {

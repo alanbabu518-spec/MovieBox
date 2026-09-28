@@ -4,6 +4,7 @@ import { cacheConfig } from "../config/cache.js";
 import { redis } from "../config/redis.js";
 import { normalizeTMDBMovie } from "../utils/movieNormalizer.js";
 import { TMDBMovieListResponse } from "../types/tmdb.js";
+import { Movie } from "../types/movie.js";
 import { handleTMDBError } from "./tmdbRequest.service.js";
 
 const TRENDING_MOVIES_CACHE_KEY =
@@ -120,5 +121,38 @@ export const searchMovies = async (
     };
   } catch (error) {
     handleTMDBError(error);
+  }
+};
+
+export const discoverMovies = async (
+  page = 1,
+): Promise<{
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  movies: Movie[];
+}> => {
+  try {
+    const response =
+      await tmdbClient.get<TMDBMovieListResponse>(
+        "/discover/movie",
+        {
+          params: {
+            page,
+            sort_by: "popularity.desc",
+          },
+        },
+      );
+
+    return {
+      page: response.data.page,
+      totalPages: response.data.total_pages,
+      totalResults: response.data.total_results,
+      movies: response.data.results.map(
+        normalizeTMDBMovie,
+      ),
+    };
+  } catch (error) {
+    return handleTMDBError(error);
   }
 };
