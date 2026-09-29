@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Hero from "../shared/components/home/Hero";
 import MovieSection from "../shared/components/home/MovieSection";
 import Navbar from "../shared/components/layout/Navbar";
+import ProfileSetupModal from "../shared/components/auth/ProfileSetupModal";
 
 import type { Movie } from "../shared/types/movie";
 
@@ -239,6 +240,8 @@ export default function Home() {
           )}
         </section>
       </main>
+
+      <ProfileSetupModal />
     </div>
   );
 }

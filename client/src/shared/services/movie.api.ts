@@ -102,9 +102,78 @@ export interface MovieDetails {
   };
 }
 
+export interface WatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+  display_priority: number;
+}
+
+export interface WatchProviderCountry {
+  link: string;
+  flatrate?: WatchProvider[];
+  rent?: WatchProvider[];
+  buy?: WatchProvider[];
+}
+
+export interface WatchProviders {
+  id: number;
+  results: Record<
+    string,
+    WatchProviderCountry
+  >;
+}
+
+export interface RecommendationMovie {
+  id: number;
+  title: string;
+  tmdbId: number;
+  posterPath: string | null;
+  backdropPath: string | null;
+}
+
+export interface Review {
+  id: string;
+  content: string;
+  rating: number;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface RatingStats {
+  average: number;
+  total: number;
+  distribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+  userRating: number | null;
+}
+
+export interface CreateReviewInput {
+  content: string;
+  rating: number;
+}
+
 interface MovieDetailsResponse {
   success: boolean;
   data: MovieDetails;
+}
+
+interface WatchProvidersResponse {
+  success: boolean;
+  data: WatchProviders;
+}
+
+interface RecommendationsResponse {
+  success: boolean;
+  data: RecommendationMovie[];
 }
 
 export interface MovieFilterParams {
@@ -139,9 +208,7 @@ function normalizeMovieResult(
   data: MovieListData,
 ): MovieListResult {
   return {
-    movies: normalizeMovieList(
-      data.movies,
-    ),
+    movies: normalizeMovieList(data.movies),
     page: data.page,
     totalPages: data.totalPages,
     totalResults: data.totalResults,
@@ -250,6 +317,119 @@ export async function getMovieDetails(
     );
 
   return response.data.data;
+}
+
+export async function getWatchProviders(
+  tmdbId: string,
+): Promise<WatchProviders> {
+  const response =
+    await api.get<WatchProvidersResponse>(
+      `/movies/${tmdbId}/watch/providers`,
+    );
+
+  return response.data.data;
+}
+
+export async function getRecommendations(): Promise<
+  RecommendationMovie[]
+> {
+  const response =
+    await api.get<RecommendationsResponse>(
+      "/movies/recommendations",
+    );
+
+  return response.data.data;
+}
+
+export async function getReviews(
+  tmdbId: string,
+): Promise<Review[]> {
+  const response = await api.get(
+    `/movies/${tmdbId}/reviews`,
+  );
+
+  const data = response.data?.data ?? response.data;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.reviews)) {
+    return data.reviews;
+  }
+
+  return [];
+}
+
+export async function createReview(
+  tmdbId: string,
+  data: CreateReviewInput,
+): Promise<Review> {
+  const response = await api.post(
+    `/movies/${tmdbId}/reviews`,
+    data,
+  );
+
+  return response.data?.data ?? response.data;
+}
+
+
+export async function getRatingStats(
+  tmdbId: string,
+): Promise<RatingStats> {
+  const response = await api.get(
+    `/movies/${tmdbId}/rating`,
+  );
+
+  const data =
+    response.data?.data ?? response.data;
+
+  return {
+    average: Number(data?.average ?? 0),
+    total: Number(data?.total ?? 0),
+    distribution: data?.distribution ?? {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    },
+    userRating:
+      data?.userRating == null
+        ? null
+        : Number(data.userRating),
+  };
+}
+
+export async function rateMovie(
+  tmdbId: string,
+  value: number,
+): Promise<RatingStats> {
+  const response = await api.post(
+    `/movies/${tmdbId}/rating`,
+    {
+      rating: value,
+    },
+  );
+
+  const data =
+    response.data?.data ?? response.data;
+
+  return {
+    average: Number(data?.average ?? 0),
+    total: Number(data?.total ?? 0),
+    distribution: data?.distribution ?? {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    },
+    userRating:
+      data?.userRating == null
+        ? value
+        : Number(data.userRating),
+  };
 }
 
 export async function searchMovies(

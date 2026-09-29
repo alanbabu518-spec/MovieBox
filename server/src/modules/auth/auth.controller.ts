@@ -1,20 +1,17 @@
 import { Request, Response } from "express";
+import { env } from "../../config/env.js";
 import {
-  getCurrentUser,
-  loginUser,
-  registerUser,
-  resendEmailOTP,
-  verifyEmailOTP,
+  createAuthToken,
+  requestMagicLink,
+  verifyMagicLink,
 } from "./auth.service.js";
 import {
-  loginSchema,
-  registerSchema,
-  resendEmailOTPSchema,
-  verifyEmailOTPSchema,
-} from "./auth.validator.js";
+  authenticateWithGoogle,
+  getGoogleAuthorizationUrl,
+} from "./google.service.js";
+import { emailAuthSchema } from "./auth.validator.js";
+import { prisma } from "../../config/database.js";
 import { AuthenticatedRequest } from "../../shared/types/auth.js";
-import { AppError } from "../../shared/utils/appError.js";
-import { env } from "../../config/env.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -24,41 +21,95 @@ const cookieOptions = {
   path: "/",
 };
 
-export const register = async (req: Request, res: Response) => {
-  const data = registerSchema.parse(req.body);
-  const result = await registerUser(data);
+export const requestEmailLogin = async (req: Request, res: Response) => {
+  const { email } = emailAuthSchema.parse(req.body);
 
-  res.status(201).json({
+  const result = await requestMagicLink(email);
+
+  return res.status(200).json({
     success: true,
-    data: {
-      email: result.email,
-      message: result.message,
-    },
+    data: result,
   });
 };
 
-export const login = async (req: Request, res: Response) => {
-  const data = loginSchema.parse(req.body);
-  const result = await loginUser(data);
+export const googleLogin = async (_req: Request, res: Response) => {
+  const authorizationUrl = getGoogleAuthorizationUrl();
+
+  return res.redirect(302, authorizationUrl);
+};
+
+export const googleCallback = async (req: Request, res: Response) => {
+  const code = req.query.code;
+
+  if (typeof code !== "string" || !code) {
+    return res.status(400).json({
+      success: false,
+      message: "Google authorization code is missing",
+    });
+  }
+
+  const result = await authenticateWithGoogle(code);
+
+  const token = createAuthToken(result.user.id);
+
+  res.cookie(env.cookieName, token, cookieOptions);
+
+  return res.redirect(env.clientUrl);
+};
+
+export const verifyEmailMagicLink = async (req: Request, res: Response) => {
+  const token = req.query.token;
+
+  if (typeof token !== "string" || !token) {
+    return res.status(400).json({
+      success: false,
+      message: "Authentication token is missing",
+    });
+  }
+
+  const result = await verifyMagicLink(token);
 
   res.cookie(env.cookieName, result.token, cookieOptions);
 
-  res.status(200).json({
-    success: true,
-    data: {
-      user: result.user,
-    },
-  });
+  return res.redirect(env.clientUrl);
 };
 
-export const me = async (req: AuthenticatedRequest, res: Response) => {
-  if (!req.userId) {
-    throw new AppError("Authentication required", 401);
+export const getCurrentUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
   }
 
-  const user = await getCurrentUser(req.userId);
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      emailVerified: true,
+      avatar: true,
+      profileCompleted: true,
+      createdAt: true,
+    },
+  });
 
-  res.status(200).json({
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  return res.status(200).json({
     success: true,
     data: {
       user,
@@ -66,7 +117,7 @@ export const me = async (req: AuthenticatedRequest, res: Response) => {
   });
 };
 
-export const logout = (_req: Request, res: Response) => {
+export const logout = async (_req: Request, res: Response) => {
   res.clearCookie(env.cookieName, {
     httpOnly: true,
     secure: env.nodeEnv === "production",
@@ -74,33 +125,8 @@ export const logout = (_req: Request, res: Response) => {
     path: "/",
   });
 
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: "Logged out successfully",
-  });
-};
-
-export const verifyEmail = async (req: Request, res: Response) => {
-  const data = verifyEmailOTPSchema.parse(req.body);
-  const result = await verifyEmailOTP(data);
-
-  res.cookie(env.cookieName, result.token, cookieOptions);
-
-  res.status(200).json({
-    success: true,
-    data: {
-      user: result.user,
-    },
-  });
-};
-
-export const resendOTP = async (req: Request, res: Response) => {
-  const data = resendEmailOTPSchema.parse(req.body);
-
-  await resendEmailOTP(data.email);
-
-  res.status(200).json({
-    success: true,
-    message: "OTP sent successfully",
   });
 };

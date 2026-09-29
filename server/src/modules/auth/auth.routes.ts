@@ -1,59 +1,24 @@
 import { Router } from "express";
 
 import {
-  login,
+  getCurrentUser,
+  googleCallback,
+  googleLogin,
   logout,
-  me,
-  register,
-  resendOTP,
-  verifyEmail,
+  requestEmailLogin,
+  verifyEmailMagicLink,
 } from "./auth.controller.js";
-
+import { updateUserProfile } from "./profile.controller.js";
 import { authenticate } from "../../middleware/auth.js";
-
-import {
-  loginRateLimiter,
-  otpRateLimiter,
-  registerRateLimiter,
-  resendOtpRateLimiter,
-} from "../../middleware/authRateLimit.js";
 
 const router = Router();
 
-router.post(
-  "/register",
-  registerRateLimiter,
-  register,
-);
-
-router.post(
-  "/login",
-  loginRateLimiter,
-  login,
-);
-
-router.post(
-  "/logout",
-  authenticate,
-  logout,
-);
-
-router.get(
-  "/me",
-  authenticate,
-  me,
-);
-
-router.post(
-  "/verify-email",
-  otpRateLimiter,
-  verifyEmail,
-);
-
-router.post(
-  "/resend-otp",
-  resendOtpRateLimiter,
-  resendOTP,
-);
+router.post("/email", requestEmailLogin);
+router.get("/verify", verifyEmailMagicLink);
+router.get("/google", googleLogin);
+router.get("/google/callback", googleCallback);
+router.get("/me", authenticate, getCurrentUser);
+router.patch("/profile", authenticate, updateUserProfile);
+router.post("/logout", logout);
 
 export default router;

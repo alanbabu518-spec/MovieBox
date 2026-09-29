@@ -16,12 +16,14 @@ import {
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useThemeStore } from "../../../store/theme.store";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "../../components/ui/avatar";
+import { useAuth } from "../../../shared/context/AuthContext";
 
-type NavbarProps = {
-  isAuthenticated?: boolean;
-  userName?: string;
-};
+import { useThemeStore } from "../../../store/theme.store";
 
 type DropdownItem = {
   label: string;
@@ -124,7 +126,7 @@ function DropdownMenu({
   return (
     <div className="absolute left-0 top-full pt-2">
       <div
-        className="w-max min-w-[460px] rounded-xl border p-4 shadow-2xl"
+        className="w-max min-w-115 rounded-xl border p-4 shadow-2xl"
         style={{
           backgroundColor: "var(--background)",
           borderColor: "var(--border)",
@@ -132,7 +134,7 @@ function DropdownMenu({
       >
         <div className="flex gap-8">
           {sections.map((section) => (
-            <div key={section.title} className="min-w-[210px]">
+            <div key={section.title} className="min-w-52.5">
               <p
                 className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider"
                 style={{
@@ -153,7 +155,7 @@ function DropdownMenu({
                       className="group flex items-start gap-3 rounded-lg p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                     >
                       <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors group-hover:border-[var(--primary)] group-hover:bg-[var(--primary)] group-hover:text-white"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors group-hover:border-(--primary)] group-hover:bg-(--primary)] group-hover:text-white"
                         style={{
                           borderColor: "var(--border)",
                           color: "var(--text-secondary)",
@@ -193,10 +195,7 @@ function DropdownMenu({
   );
 }
 
-export default function Navbar({
-  isAuthenticated = false,
-  userName = "",
-}: NavbarProps) {
+export default function Navbar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileMovieOpen, setMobileMovieOpen] = useState(false);
@@ -204,12 +203,10 @@ export default function Navbar({
   const [isThemeAnimating, setIsThemeAnimating] = useState(false);
   const [themeReveal, setThemeReveal] = useState(false);
 
+  const { user, loading, logout } = useAuth();
+
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
-
-  const userInitial = userName.trim()
-    ? userName.trim().charAt(0).toUpperCase()
-    : "U";
 
   const closeMenus = () => {
     setOpenMenu(null);
@@ -239,6 +236,17 @@ export default function Navbar({
     }, 900);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      closeMenus();
+    } catch {
+      return;
+    }
+  };
+
+  const avatarId = user?.avatar || "avatar-1";
+
   return (
     <>
       <div
@@ -248,12 +256,11 @@ export default function Navbar({
         aria-hidden="true"
       >
         <div
-          className={`absolute inset-0 origin-center transition-transform duration-[800ms] ease-[cubic-bezier(0.76,0,0.24,1)] ${
+          className={`absolute inset-0 origin-center transition-transform duration-800 ease-[cubic-bezier(0.76,0,0.24,1)] ${
             themeReveal ? "scale-100" : "scale-0"
           }`}
           style={{
-            backgroundColor:
-              theme === "dark" ? "var(--background)" : "var(--background)",
+            backgroundColor: "var(--background)",
           }}
         />
       </div>
@@ -297,7 +304,7 @@ export default function Navbar({
           <div className="hidden h-full items-center md:flex">
             <Link
               to="/"
-              className="flex h-full items-center px-3 text-sm font-medium transition-colors hover:text-[var(--primary)]"
+              className="flex h-full items-center px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
               style={{
                 color: "var(--text-primary)",
               }}
@@ -312,7 +319,7 @@ export default function Navbar({
             >
               <button
                 type="button"
-                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-[var(--primary)]"
+                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
                 style={{
                   color:
                     openMenu === "movies"
@@ -343,7 +350,7 @@ export default function Navbar({
             >
               <button
                 type="button"
-                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-[var(--primary)]"
+                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
                 style={{
                   color:
                     openMenu === "discover"
@@ -369,7 +376,7 @@ export default function Navbar({
 
             <Link
               to="/ai"
-              className="flex items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:text-[var(--text-primary)]"
+              className="flex items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:text-(--text-primary)]"
               style={{
                 color: "var(--text-secondary)",
               }}
@@ -380,7 +387,6 @@ export default function Navbar({
                   backgroundColor: "var(--primary)",
                 }}
               />
-
               AI
             </Link>
           </div>
@@ -436,57 +442,72 @@ export default function Navbar({
               </span>
             </button>
 
-            {isAuthenticated ? (
-              <>
-                <Link
-                  to="/favorites"
-                  aria-label="Favorites"
-                  className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:flex"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <Heart size={18} strokeWidth={1.8} />
-                </Link>
+            {!loading &&
+              (user ? (
+                <>
+                  <Link
+                    to="/favorites"
+                    aria-label="Favorites"
+                    className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:flex"
+                    style={{
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    <Heart size={18} strokeWidth={1.8} />
+                  </Link>
 
-                <Link
-                  to="/profile"
-                  aria-label="Profile"
-                  className="ml-1 hidden h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white transition-opacity hover:opacity-90 sm:flex"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                  }}
-                >
-                  {userInitial}
-                </Link>
-              </>
-            ) : (
-              <div className="ml-1 hidden items-center gap-1.5 sm:flex">
-                <Link
-                  to="/login"
-                  className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
-                  style={{
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  Sign in
-                </Link>
+                  <Link
+                    to="/profile"
+                    aria-label="Profile"
+                    className="ml-1 hidden sm:flex"
+                  >
+                    <Avatar className="h-8 w-8 transition-opacity hover:opacity-90">
+                      <AvatarImage
+                        src={`/avatars/${avatarId}.svg`}
+                        alt={user.name}
+                      />
+                      <AvatarFallback
+                        style={{
+                          backgroundColor: "var(--primary)",
+                          color: "white",
+                        }}
+                      >
+                        {user.name
+                          .charAt(0)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+                </>
+              ) : (
+                <div className="ml-1 hidden items-center gap-1.5 sm:flex">
+                  <Link
+                    to="/signin"
+                    className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                    style={{
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Sign in
+                  </Link>
 
-                <Link
-                  to="/signup"
-                  className="rounded-md px-3.5 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                  }}
-                >
-                  Get Started
-                </Link>
-              </div>
-            )}
+                  <Link
+                    to="/signin"
+                    className="rounded-md px-3.5 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{
+                      backgroundColor: "var(--primary)",
+                    }}
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              ))}
 
             <button
               type="button"
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-label={
+                mobileOpen ? "Close menu" : "Open menu"
+              }
               aria-expanded={mobileOpen}
               onClick={() => setMobileOpen((open) => !open)}
               className="ml-1 flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 md:hidden"
@@ -525,7 +546,9 @@ export default function Navbar({
 
               <button
                 type="button"
-                onClick={() => setMobileMovieOpen((open) => !open)}
+                onClick={() =>
+                  setMobileMovieOpen((open) => !open)
+                }
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
                   color: "var(--text-primary)",
@@ -568,7 +591,9 @@ export default function Navbar({
 
               <button
                 type="button"
-                onClick={() => setMobileDiscoverOpen((open) => !open)}
+                onClick={() =>
+                  setMobileDiscoverOpen((open) => !open)
+                }
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
                   color: "var(--text-primary)",
@@ -621,72 +646,95 @@ export default function Navbar({
                 AI
               </Link>
 
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    to="/favorites"
-                    onClick={closeMenus}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium"
-                    style={{
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <Heart size={16} />
-                    Favorites
-                  </Link>
+              {!loading &&
+                (user ? (
+                  <>
+                    <Link
+                      to="/favorites"
+                      onClick={closeMenus}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium"
+                      style={{
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <Heart size={16} />
+                      Favorites
+                    </Link>
 
-                  <Link
-                    to="/profile"
-                    onClick={closeMenus}
-                    className="mt-2 flex items-center gap-3 border-t px-3 pt-3 text-sm font-medium"
+                    <Link
+                      to="/profile"
+                      onClick={closeMenus}
+                      className="mt-2 flex items-center gap-3 border-t px-3 pt-3 text-sm font-medium"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={`/avatars/${avatarId}.svg`}
+                          alt={user.name}
+                        />
+                        <AvatarFallback
+                          style={{
+                            backgroundColor:
+                              "var(--primary)",
+                            color: "white",
+                          }}
+                        >
+                          {user.name
+                            .charAt(0)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <span className="flex-1">
+                        Profile
+                      </span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mt-2 w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium"
+                      style={{
+                        color: "var(--primary)",
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    className="mt-2 grid grid-cols-2 gap-2 border-t pt-3"
                     style={{
                       borderColor: "var(--border)",
-                      color: "var(--text-primary)",
                     }}
                   >
-                    <span
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                    <Link
+                      to="/signin"
+                      onClick={closeMenus}
+                      className="flex items-center justify-center rounded-md border px-3 py-2.5 text-sm font-medium"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      Sign in
+                    </Link>
+
+                    <Link
+                      to="/signin"
+                      onClick={closeMenus}
+                      className="flex items-center justify-center rounded-md px-3 py-2.5 text-sm font-semibold text-white"
                       style={{
                         backgroundColor: "var(--primary)",
                       }}
                     >
-                      {userInitial}
-                    </span>
-
-                    Profile
-                  </Link>
-                </>
-              ) : (
-                <div
-                  className="mt-2 grid grid-cols-2 gap-2 border-t pt-3"
-                  style={{
-                    borderColor: "var(--border)",
-                  }}
-                >
-                  <Link
-                    to="/login"
-                    onClick={closeMenus}
-                    className="flex items-center justify-center rounded-md border px-3 py-2.5 text-sm font-medium"
-                    style={{
-                      borderColor: "var(--border)",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    Sign in
-                  </Link>
-
-                  <Link
-                    to="/signup"
-                    onClick={closeMenus}
-                    className="flex items-center justify-center rounded-md px-3 py-2.5 text-sm font-semibold text-white"
-                    style={{
-                      backgroundColor: "var(--primary)",
-                    }}
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              )}
+                      Get Started
+                    </Link>
+                  </div>
+                ))}
             </div>
           </div>
         )}

@@ -7,7 +7,7 @@ interface AuthLayoutProps {
   description: string;
 }
 
-const TRAILER_ID = "mqqft2x_Aa4";
+const TRAILER_ID = "X1aFkAkFASk";
 
 function AppleLogo() {
   return (
@@ -32,7 +32,7 @@ export default function AuthLayout({
     <main className="min-h-screen bg-black">
       <div className="relative min-h-screen overflow-hidden lg:grid lg:grid-cols-[1.15fr_0.85fr]">
         <section className="absolute inset-0 lg:relative lg:min-h-screen">
-          <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 hidden overflow-hidden lg:block">
             <iframe
               src={`https://www.youtube.com/embed/${TRAILER_ID}?autoplay=1&mute=1&controls=0&loop=1&playlist=${TRAILER_ID}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1`}
               title="MovieBox trailer"
@@ -108,7 +108,7 @@ export default function AuthLayout({
         </section>
 
         <section className="relative z-20 flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:bg-black/20 lg:px-12">
-          <div className="w-full max-w-[440px]">
+          <div className="w-full max-w-110">
             <div
               className="rounded-2xl border p-6 shadow-2xl backdrop-blur-xl sm:p-8"
               style={{
