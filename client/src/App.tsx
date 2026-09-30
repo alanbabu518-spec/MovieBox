@@ -12,6 +12,9 @@ import MovieDetails from "./pages/MovieDetails";
 import SignIn from "./pages/Authentication";
 import AuthVerify from "./pages/AuthVerify";
 import { AuthProvider } from "./shared/context/AuthContext";
+import Profile from "./pages/Profile";
+import Watchlist from "./pages/Watchlist";
+import Favorites from "./pages/Favorites";
 
 function ScrollToTop() {
   const { pathname, search } = useLocation();
@@ -58,6 +61,9 @@ export default function App() {
             path="/auth/verify"
             element={<AuthVerify />}
           />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

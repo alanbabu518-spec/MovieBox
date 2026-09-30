@@ -13,6 +13,8 @@ import RecommendedMovies from "../shared/components/moviedetails/RecommendedMovi
 import MovieRating from "../shared/components/moviedetails/MovieRating";
 import MovieReviews from "../shared/components/moviedetails/MovieReviews";
 import AddReview from "../shared/components/moviedetails/AddReview";
+import WatchlistButton from "../shared/components/movie/WatchlistButton";
+import FavoriteButton from "../shared/components/movie/FavoriteButton";
 
 import {
   getMovieDetails,
@@ -185,6 +187,18 @@ export default function MovieDetails() {
           trailer={trailer}
           onBack={() => navigate(-1)}
         />
+
+        <div className="mx-auto flex max-w-7xl justify-end gap-3 px-6 pt-6 lg:px-8">
+          <WatchlistButton
+            tmdbId={Number(movie.id)}
+            variant="button"
+          />
+
+          <FavoriteButton
+            tmdbId={Number(movie.id)}
+            variant="button"
+          />
+        </div>
 
         <MovieOverview movie={movie} />
 

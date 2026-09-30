@@ -1,11 +1,19 @@
-import { NextFunction, Response } from "express";
+import type {
+  NextFunction,
+  Request,
+  Response,
+} from "express";
 import jwt from "jsonwebtoken";
+
 import { env } from "../config/env.js";
 import { AppError } from "../shared/utils/appError.js";
-import { AuthenticatedRequest } from "../shared/types/auth.js";
+
+export interface AuthenticatedRequest extends Request {
+  userId: string;
+}
 
 export const authenticate = (
-  req: AuthenticatedRequest,
+  req: Request,
   _res: Response,
   next: NextFunction,
 ) => {
@@ -30,7 +38,8 @@ export const authenticate = (
       return;
     }
 
-    req.userId = payload.userId;
+    (req as AuthenticatedRequest).userId = payload.userId;
+
     next();
   } catch {
     next(new AppError("Invalid or expired authentication token", 401));
