@@ -22,7 +22,6 @@ import {
   AvatarImage,
 } from "../../components/ui/avatar";
 import { useAuth } from "../../../shared/context/AuthContext";
-
 import { useThemeStore } from "../../../store/theme.store";
 
 type DropdownItem = {
@@ -134,7 +133,10 @@ function DropdownMenu({
       >
         <div className="flex gap-8">
           {sections.map((section) => (
-            <div key={section.title} className="min-w-52.5">
+            <div
+              key={section.title}
+              className="min-w-52.5"
+            >
               <p
                 className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider"
                 style={{
@@ -155,13 +157,16 @@ function DropdownMenu({
                       className="group flex items-start gap-3 rounded-lg p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                     >
                       <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors group-hover:border-(--primary)] group-hover:bg-(--primary)] group-hover:text-white"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors"
                         style={{
                           borderColor: "var(--border)",
                           color: "var(--text-secondary)",
                         }}
                       >
-                        <Icon size={17} strokeWidth={1.8} />
+                        <Icon
+                          size={17}
+                          strokeWidth={1.8}
+                        />
                       </div>
 
                       <div className="min-w-0">
@@ -196,17 +201,33 @@ function DropdownMenu({
 }
 
 export default function Navbar() {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileMovieOpen, setMobileMovieOpen] = useState(false);
-  const [mobileDiscoverOpen, setMobileDiscoverOpen] = useState(false);
-  const [isThemeAnimating, setIsThemeAnimating] = useState(false);
-  const [themeReveal, setThemeReveal] = useState(false);
+  const [openMenu, setOpenMenu] =
+    useState<string | null>(null);
+
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
+
+  const [mobileMovieOpen, setMobileMovieOpen] =
+    useState(false);
+
+  const [mobileDiscoverOpen, setMobileDiscoverOpen] =
+    useState(false);
+
+  const [isThemeAnimating, setIsThemeAnimating] =
+    useState(false);
+
+  const [themeReveal, setThemeReveal] =
+    useState(false);
 
   const { user, loading, logout } = useAuth();
 
-  const theme = useThemeStore((state) => state.theme);
-  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const theme = useThemeStore(
+    (state) => state.theme,
+  );
+
+  const toggleTheme = useThemeStore(
+    (state) => state.toggleTheme,
+  );
 
   const closeMenus = () => {
     setOpenMenu(null);
@@ -245,28 +266,53 @@ export default function Navbar() {
     }
   };
 
-  const avatarId = user?.avatar || "avatar-1";
+  const avatarId =
+    user?.avatar || "avatar-1";
+
+  const avatarNumber = Number(
+    avatarId.replace("avatar-", ""),
+  );
+
+  const avatarSrc =
+    avatarId === "avatar-1" ||
+    !Number.isInteger(avatarNumber) ||
+    avatarNumber < 2 ||
+    avatarNumber > 10
+      ? null
+      : `/avatars/avatar${avatarNumber - 1}.svg`;
+
+  const avatarFallback =
+    user?.name
+      ?.trim()
+      .charAt(0)
+      .toUpperCase() || "U";
 
   return (
     <>
       <div
         className={`pointer-events-none fixed inset-0 z-40 overflow-hidden ${
-          themeReveal ? "opacity-100" : "opacity-0"
+          themeReveal
+            ? "opacity-100"
+            : "opacity-0"
         }`}
         aria-hidden="true"
       >
         <div
           className={`absolute inset-0 origin-center transition-transform duration-800 ease-[cubic-bezier(0.76,0,0.24,1)] ${
-            themeReveal ? "scale-100" : "scale-0"
+            themeReveal
+              ? "scale-100"
+              : "scale-0"
           }`}
           style={{
-            backgroundColor: "var(--background)",
+            backgroundColor:
+              "var(--background)",
           }}
         />
       </div>
 
+      {/* fixed = always stays on screen while scrolling */}
       <header
-        className="sticky top-0 z-50 border-b backdrop-blur-xl"
+        className="fixed inset-x-0 top-0 z-50 border-b backdrop-blur-xl"
         style={{
           backgroundColor:
             "color-mix(in srgb, var(--background) 90%, transparent)",
@@ -274,39 +320,85 @@ export default function Navbar() {
         }}
       >
         <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link
-            to="/"
-            onClick={closeMenus}
-            className="group flex shrink-0 items-center gap-2"
-          >
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-md transition-transform duration-200 group-hover:scale-105"
+          {/* LEFT: hamburger (mobile only) + logo */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label={
+                mobileOpen
+                  ? "Close menu"
+                  : "Open menu"
+              }
+              aria-expanded={mobileOpen}
+              onClick={() =>
+                setMobileOpen(
+                  (open) => !open,
+                )
+              }
+              className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 md:hidden"
               style={{
-                backgroundColor: "var(--primary)",
+                color:
+                  "var(--text-secondary)",
               }}
             >
-              <span className="font-display text-base font-bold text-white">
-                M
+              {mobileOpen ? (
+                <X
+                  size={20}
+                  strokeWidth={1.8}
+                />
+              ) : (
+                <Menu
+                  size={20}
+                  strokeWidth={1.8}
+                />
+              )}
+            </button>
+
+            <Link
+              to="/"
+              onClick={closeMenus}
+              className="group flex shrink-0 items-center gap-2"
+            >
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-md transition-transform duration-200 group-hover:scale-105"
+                style={{
+                  backgroundColor:
+                    "var(--primary)",
+                }}
+              >
+                <span className="font-display text-base font-bold text-white">
+                  M
+                </span>
+              </div>
+
+              <span
+                className="font-display text-lg font-bold tracking-tight"
+                style={{
+                  color:
+                    "var(--text-primary)",
+                }}
+              >
+                MOVIE
+                <span
+                  style={{
+                    color:
+                      "var(--primary)",
+                  }}
+                >
+                  BOX
+                </span>
               </span>
-            </div>
+            </Link>
+          </div>
 
-            <span
-              className="font-display text-lg font-bold tracking-tight"
-              style={{
-                color: "var(--text-primary)",
-              }}
-            >
-              MOVIE
-              <span style={{ color: "var(--primary)" }}>BOX</span>
-            </span>
-          </Link>
-
+          {/* Desktop links */}
           <div className="hidden h-full items-center md:flex">
             <Link
               to="/"
-              className="flex h-full items-center px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
+              className="flex h-full items-center px-3 text-sm font-medium transition-colors"
               style={{
-                color: "var(--text-primary)",
+                color:
+                  "var(--text-primary)",
               }}
             >
               Home
@@ -314,12 +406,16 @@ export default function Navbar() {
 
             <div
               className="relative h-full"
-              onMouseEnter={() => setOpenMenu("movies")}
-              onMouseLeave={() => setOpenMenu(null)}
+              onMouseEnter={() =>
+                setOpenMenu("movies")
+              }
+              onMouseLeave={() =>
+                setOpenMenu(null)
+              }
             >
               <button
                 type="button"
-                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
+                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors"
                 style={{
                   color:
                     openMenu === "movies"
@@ -332,25 +428,33 @@ export default function Navbar() {
                 <ChevronDown
                   size={14}
                   className={`transition-transform duration-200 ${
-                    openMenu === "movies" ? "rotate-180" : ""
+                    openMenu === "movies"
+                      ? "rotate-180"
+                      : ""
                   }`}
                 />
               </button>
 
               <DropdownMenu
                 sections={movieSections}
-                open={openMenu === "movies"}
+                open={
+                  openMenu === "movies"
+                }
               />
             </div>
 
             <div
               className="relative h-full"
-              onMouseEnter={() => setOpenMenu("discover")}
-              onMouseLeave={() => setOpenMenu(null)}
+              onMouseEnter={() =>
+                setOpenMenu("discover")
+              }
+              onMouseLeave={() =>
+                setOpenMenu(null)
+              }
             >
               <button
                 type="button"
-                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors hover:text-(--primary)]"
+                className="group flex h-full items-center gap-1 px-3 text-sm font-medium transition-colors"
                 style={{
                   color:
                     openMenu === "discover"
@@ -363,44 +467,55 @@ export default function Navbar() {
                 <ChevronDown
                   size={14}
                   className={`transition-transform duration-200 ${
-                    openMenu === "discover" ? "rotate-180" : ""
+                    openMenu === "discover"
+                      ? "rotate-180"
+                      : ""
                   }`}
                 />
               </button>
 
               <DropdownMenu
                 sections={discoverSections}
-                open={openMenu === "discover"}
+                open={
+                  openMenu === "discover"
+                }
               />
             </div>
 
             <Link
               to="/ai"
-              className="flex items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:text-(--text-primary)]"
+              className="flex items-center gap-1.5 px-3 text-sm font-medium transition-colors"
               style={{
-                color: "var(--text-secondary)",
+                color:
+                  "var(--text-secondary)",
               }}
             >
               <span
                 className="h-1.5 w-1.5 rounded-full"
                 style={{
-                  backgroundColor: "var(--primary)",
+                  backgroundColor:
+                    "var(--primary)",
                 }}
               />
               AI
             </Link>
           </div>
 
+          {/* RIGHT: search, theme, auth */}
           <div className="flex items-center gap-0.5">
             <Link
               to="/search"
               aria-label="Search"
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10"
               style={{
-                color: "var(--text-secondary)",
+                color:
+                  "var(--text-secondary)",
               }}
             >
-              <Search size={18} strokeWidth={1.8} />
+              <Search
+                size={18}
+                strokeWidth={1.8}
+              />
             </Link>
 
             <button
@@ -412,18 +527,24 @@ export default function Navbar() {
                   ? "Switch to light mode"
                   : "Switch to dark mode"
               }
-              aria-pressed={theme === "dark"}
+              aria-pressed={
+                theme === "dark"
+              }
               className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full transition-transform duration-200 hover:scale-110 hover:bg-black/5 disabled:cursor-default dark:hover:bg-white/10"
               style={{
-                color: "var(--text-secondary)",
+                color:
+                  "var(--text-secondary)",
               }}
             >
               <span
                 className={`absolute inset-0 rounded-full transition-transform duration-500 ${
-                  isThemeAnimating ? "scale-100" : "scale-0"
+                  isThemeAnimating
+                    ? "scale-100"
+                    : "scale-0"
                 }`}
                 style={{
-                  backgroundColor: "var(--primary)",
+                  backgroundColor:
+                    "var(--primary)",
                 }}
               />
 
@@ -435,9 +556,15 @@ export default function Navbar() {
                 }`}
               >
                 {theme === "dark" ? (
-                  <Sun size={18} strokeWidth={1.8} />
+                  <Sun
+                    size={18}
+                    strokeWidth={1.8}
+                  />
                 ) : (
-                  <Moon size={18} strokeWidth={1.8} />
+                  <Moon
+                    size={18}
+                    strokeWidth={1.8}
+                  />
                 )}
               </span>
             </button>
@@ -450,10 +577,14 @@ export default function Navbar() {
                     aria-label="Favorites"
                     className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:flex"
                     style={{
-                      color: "var(--text-secondary)",
+                      color:
+                        "var(--text-secondary)",
                     }}
                   >
-                    <Heart size={18} strokeWidth={1.8} />
+                    <Heart
+                      size={18}
+                      strokeWidth={1.8}
+                    />
                   </Link>
 
                   <Link
@@ -462,19 +593,21 @@ export default function Navbar() {
                     className="ml-1 hidden sm:flex"
                   >
                     <Avatar className="h-8 w-8 transition-opacity hover:opacity-90">
-                      <AvatarImage
-                        src={`/avatars/${avatarId}.svg`}
-                        alt={user.name}
-                      />
+                      {avatarSrc && (
+                        <AvatarImage
+                          src={avatarSrc}
+                          alt={user.name}
+                        />
+                      )}
+
                       <AvatarFallback
                         style={{
-                          backgroundColor: "var(--primary)",
+                          backgroundColor:
+                            "var(--primary)",
                           color: "white",
                         }}
                       >
-                        {user.name
-                          .charAt(0)
-                          .toUpperCase()}
+                        {avatarFallback}
                       </AvatarFallback>
                     </Avatar>
                   </Link>
@@ -485,7 +618,8 @@ export default function Navbar() {
                     to="/signin"
                     className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                     style={{
-                      color: "var(--text-primary)",
+                      color:
+                        "var(--text-primary)",
                     }}
                   >
                     Sign in
@@ -495,7 +629,8 @@ export default function Navbar() {
                     to="/signin"
                     className="rounded-md px-3.5 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                     style={{
-                      backgroundColor: "var(--primary)",
+                      backgroundColor:
+                        "var(--primary)",
                     }}
                   >
                     Get Started
@@ -503,33 +638,43 @@ export default function Navbar() {
                 </div>
               ))}
 
-            <button
-              type="button"
-              aria-label={
-                mobileOpen ? "Close menu" : "Open menu"
-              }
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((open) => !open)}
-              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 md:hidden"
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            >
-              {mobileOpen ? (
-                <X size={20} strokeWidth={1.8} />
-              ) : (
-                <Menu size={20} strokeWidth={1.8} />
-              )}
-            </button>
+            {!loading && user && (
+              <Link
+                to="/profile"
+                aria-label="Profile"
+                className="ml-1 flex md:hidden"
+              >
+                <Avatar className="h-8 w-8 transition-opacity hover:opacity-90">
+                  {avatarSrc && (
+                    <AvatarImage
+                      src={avatarSrc}
+                      alt={user.name}
+                    />
+                  )}
+
+                  <AvatarFallback
+                    style={{
+                      backgroundColor:
+                        "var(--primary)",
+                      color: "white",
+                    }}
+                  >
+                    {avatarFallback}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            )}
           </div>
         </nav>
 
         {mobileOpen && (
           <div
-            className="border-t md:hidden"
+            className="max-h-[calc(100vh-3.5rem)] overflow-y-auto border-t md:hidden"
             style={{
-              backgroundColor: "var(--background)",
-              borderColor: "var(--border)",
+              backgroundColor:
+                "var(--background)",
+              borderColor:
+                "var(--border)",
             }}
           >
             <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
@@ -538,7 +683,8 @@ export default function Navbar() {
                 onClick={closeMenus}
                 className="block rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
-                  color: "var(--text-primary)",
+                  color:
+                    "var(--text-primary)",
                 }}
               >
                 Home
@@ -547,11 +693,14 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() =>
-                  setMobileMovieOpen((open) => !open)
+                  setMobileMovieOpen(
+                    (open) => !open,
+                  )
                 }
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
-                  color: "var(--text-primary)",
+                  color:
+                    "var(--text-primary)",
                 }}
               >
                 Movies
@@ -559,32 +708,43 @@ export default function Navbar() {
                 <ChevronDown
                   size={16}
                   className={`transition-transform ${
-                    mobileMovieOpen ? "rotate-180" : ""
+                    mobileMovieOpen
+                      ? "rotate-180"
+                      : ""
                   }`}
                 />
               </button>
 
               {mobileMovieOpen && (
                 <div className="mb-1 ml-3 border-l pl-3">
-                  {movieSections.flatMap((section) =>
-                    section.items.map((item) => {
-                      const Icon = item.icon;
+                  {movieSections.flatMap(
+                    (section) =>
+                      section.items.map(
+                        (item) => {
+                          const Icon =
+                            item.icon;
 
-                      return (
-                        <Link
-                          key={item.label}
-                          to={item.href}
-                          onClick={closeMenus}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-                          style={{
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <Icon size={15} />
-                          {item.label}
-                        </Link>
-                      );
-                    }),
+                          return (
+                            <Link
+                              key={item.label}
+                              to={item.href}
+                              onClick={
+                                closeMenus
+                              }
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                              style={{
+                                color:
+                                  "var(--text-secondary)",
+                              }}
+                            >
+                              <Icon
+                                size={15}
+                              />
+                              {item.label}
+                            </Link>
+                          );
+                        },
+                      ),
                   )}
                 </div>
               )}
@@ -592,11 +752,14 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() =>
-                  setMobileDiscoverOpen((open) => !open)
+                  setMobileDiscoverOpen(
+                    (open) => !open,
+                  )
                 }
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
-                  color: "var(--text-primary)",
+                  color:
+                    "var(--text-primary)",
                 }}
               >
                 Discover
@@ -604,32 +767,43 @@ export default function Navbar() {
                 <ChevronDown
                   size={16}
                   className={`transition-transform ${
-                    mobileDiscoverOpen ? "rotate-180" : ""
+                    mobileDiscoverOpen
+                      ? "rotate-180"
+                      : ""
                   }`}
                 />
               </button>
 
               {mobileDiscoverOpen && (
                 <div className="mb-1 ml-3 border-l pl-3">
-                  {discoverSections.flatMap((section) =>
-                    section.items.map((item) => {
-                      const Icon = item.icon;
+                  {discoverSections.flatMap(
+                    (section) =>
+                      section.items.map(
+                        (item) => {
+                          const Icon =
+                            item.icon;
 
-                      return (
-                        <Link
-                          key={item.label}
-                          to={item.href}
-                          onClick={closeMenus}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-                          style={{
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <Icon size={15} />
-                          {item.label}
-                        </Link>
-                      );
-                    }),
+                          return (
+                            <Link
+                              key={item.label}
+                              to={item.href}
+                              onClick={
+                                closeMenus
+                              }
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                              style={{
+                                color:
+                                  "var(--text-secondary)",
+                              }}
+                            >
+                              <Icon
+                                size={15}
+                              />
+                              {item.label}
+                            </Link>
+                          );
+                        },
+                      ),
                   )}
                 </div>
               )}
@@ -639,106 +813,48 @@ export default function Navbar() {
                 onClick={closeMenus}
                 className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium"
                 style={{
-                  color: "var(--text-primary)",
+                  color:
+                    "var(--text-primary)",
                 }}
               >
                 <Sparkles size={16} />
                 AI
               </Link>
 
-              {!loading &&
-                (user ? (
-                  <>
-                    <Link
-                      to="/favorites"
-                      onClick={closeMenus}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium"
-                      style={{
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      <Heart size={16} />
-                      Favorites
-                    </Link>
-
-                    <Link
-                      to="/profile"
-                      onClick={closeMenus}
-                      className="mt-2 flex items-center gap-3 border-t px-3 pt-3 text-sm font-medium"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage
-                          src={`/avatars/${avatarId}.svg`}
-                          alt={user.name}
-                        />
-                        <AvatarFallback
-                          style={{
-                            backgroundColor:
-                              "var(--primary)",
-                            color: "white",
-                          }}
-                        >
-                          {user.name
-                            .charAt(0)
-                            .toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <span className="flex-1">
-                        Profile
-                      </span>
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="mt-2 w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium"
-                      style={{
-                        color: "var(--primary)",
-                      }}
-                    >
-                      Sign out
-                    </button>
-                  </>
-                ) : (
-                  <div
-                    className="mt-2 grid grid-cols-2 gap-2 border-t pt-3"
+              {/* Only shown when logged in; no Sign in on mobile */}
+              {!loading && user && (
+                <>
+                  <Link
+                    to="/favorites"
+                    onClick={closeMenus}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium"
                     style={{
-                      borderColor: "var(--border)",
+                      color:
+                        "var(--text-primary)",
                     }}
                   >
-                    <Link
-                      to="/signin"
-                      onClick={closeMenus}
-                      className="flex items-center justify-center rounded-md border px-3 py-2.5 text-sm font-medium"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      Sign in
-                    </Link>
+                    <Heart size={16} />
+                    Favorites
+                  </Link>
 
-                    <Link
-                      to="/signin"
-                      onClick={closeMenus}
-                      className="flex items-center justify-center rounded-md px-3 py-2.5 text-sm font-semibold text-white"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                      }}
-                    >
-                      Get Started
-                    </Link>
-                  </div>
-                ))}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="mt-2 w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium"
+                    style={{
+                      color:
+                        "var(--primary)",
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
       </header>
+      <div className="h-14" aria-hidden="true" />
     </>
   );
 }
