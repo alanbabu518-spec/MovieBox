@@ -1,18 +1,19 @@
-import { Response } from "express";
-import { AuthenticatedRequest } from "../../shared/types/auth.js";
+import type { Request, Response } from "express";
+
+import type { AuthenticatedRequest } from "../../shared/types/auth";
+
 import { AppError } from "../../shared/utils/appError.js";
+
 import { getRecommendedMovies } from "./recommendation.service.js";
 
-export const getRecommendations = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
-  if (!req.userId) {
+export const getRecommendations = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
+
+  if (!userId) {
     throw new AppError("Authentication required", 401);
   }
 
-  const recommendations =
-    await getRecommendedMovies(req.userId);
+  const recommendations = await getRecommendedMovies(userId);
 
   res.status(200).json({
     success: true,

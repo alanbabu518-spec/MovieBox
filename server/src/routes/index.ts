@@ -12,12 +12,12 @@ import favoriteRoutes from "../modules/favorite/favorite.routes.js";
 const router = Router();
 
 router.use("/auth", authRoutes);
-
+router.use("/auth", authRoutes);
 router.use("/movies", movieRoutes);
 router.use("/movies", reviewRoutes);
 router.use("/movies", ratingRoutes);
 router.use("/movies", recommendationRoutes);
-router.use("/movies", aiRoutes);
+router.use("/ai", aiRoutes);
 router.use("/watchlist", watchlistRoutes);
 router.use("/favorites", favoriteRoutes);
 

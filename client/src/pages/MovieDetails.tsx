@@ -15,6 +15,7 @@ import MovieReviews from "../shared/components/moviedetails/MovieReviews";
 import AddReview from "../shared/components/moviedetails/AddReview";
 import WatchlistButton from "../shared/components/movie/WatchlistButton";
 import FavoriteButton from "../shared/components/movie/FavoriteButton";
+import AIRecommendations from "../shared/components/movie/AIRecommendations";
 
 import {
   getMovieDetails,
@@ -27,11 +28,9 @@ export default function MovieDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [movie, setMovie] =
-    useState<MovieDetailsType | null>(null);
+  const [movie, setMovie] = useState<MovieDetailsType | null>(null);
 
-  const [providers, setProviders] =
-    useState<WatchProviders | null>(null);
+  const [providers, setProviders] = useState<WatchProviders | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,23 +47,17 @@ export default function MovieDetails() {
         setLoading(true);
         setError("");
 
-        const [movieData, providerData] =
-          await Promise.all([
-            getMovieDetails(id),
-            getWatchProviders(id).catch(() => null),
-          ]);
+        const [movieData, providerData] = await Promise.all([
+          getMovieDetails(id),
+          getWatchProviders(id).catch(() => null),
+        ]);
 
         setMovie(movieData);
         setProviders(providerData);
       } catch (error) {
-        console.error(
-          "Failed to load movie:",
-          error,
-        );
+        console.error("Failed to load movie:", error);
 
-        setError(
-          "Unable to load movie details.",
-        );
+        setError("Unable to load movie details.");
       } finally {
         setLoading(false);
       }
@@ -129,8 +122,7 @@ export default function MovieDetails() {
               onClick={() => navigate(-1)}
               className="mt-5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
               style={{
-                backgroundColor:
-                  "var(--primary)",
+                backgroundColor: "var(--primary)",
               }}
             >
               Go Back
@@ -154,16 +146,11 @@ export default function MovieDetails() {
     results: [],
   };
 
-  const director = credits.crew.find(
-    (person) => person.job === "Director",
-  );
+  const director = credits.crew.find((person) => person.job === "Director");
 
-  const trailer =
-    videos.results.find(
-      (video) =>
-        video.site === "YouTube" &&
-        video.type === "Trailer",
-    );
+  const trailer = videos.results.find(
+    (video) => video.site === "YouTube" && video.type === "Trailer",
+  );
 
   const movieWithCredits = {
     ...movie,
@@ -189,15 +176,9 @@ export default function MovieDetails() {
         />
 
         <div className="mx-auto flex max-w-7xl justify-end gap-3 px-6 pt-6 lg:px-8">
-          <WatchlistButton
-            tmdbId={Number(movie.id)}
-            variant="button"
-          />
+          <WatchlistButton tmdbId={Number(movie.id)} variant="button" />
 
-          <FavoriteButton
-            tmdbId={Number(movie.id)}
-            variant="button"
-          />
+          <FavoriteButton tmdbId={Number(movie.id)} variant="button" />
         </div>
 
         <MovieOverview movie={movie} />
@@ -208,23 +189,17 @@ export default function MovieDetails() {
 
         <MovieTrailer trailer={trailer} />
 
-        <SimilarMovies
-          movies={similar.results}
-        />
+        <SimilarMovies movies={similar.results} />
 
         <RecommendedMovies />
 
-        <WhereToWatch
-          providers={providers}
-        />
+        <AIRecommendations />
 
-        <MovieRating
-          tmdbId={String(movie.id)}
-        />
+        <WhereToWatch providers={providers} />
 
-        <MovieReviews
-          tmdbId={String(movie.id)}
-        />
+        <MovieRating tmdbId={String(movie.id)} />
+
+        <MovieReviews tmdbId={String(movie.id)} />
 
         <AddReview
           tmdbId={String(movie.id)}

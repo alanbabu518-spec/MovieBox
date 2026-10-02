@@ -118,10 +118,7 @@ export interface WatchProviderCountry {
 
 export interface WatchProviders {
   id: number;
-  results: Record<
-    string,
-    WatchProviderCountry
-  >;
+  results: Record<string, WatchProviderCountry>;
 }
 
 export interface RecommendationMovie {
@@ -239,6 +236,48 @@ function buildFilterParams(
   };
 }
 
+function normalizeMovieDetails(
+  movie: MovieDetails,
+): MovieDetails {
+  const credits = movie.credits ?? {
+    cast: [],
+    crew: [],
+  };
+
+  const videos = movie.videos ?? {
+    results: [],
+  };
+
+  const similar = movie.similar ?? {
+    results: [],
+  };
+
+  return {
+    ...movie,
+    genres: Array.isArray(movie.genres)
+      ? movie.genres
+      : [],
+    credits: {
+      cast: Array.isArray(credits.cast)
+        ? credits.cast
+        : [],
+      crew: Array.isArray(credits.crew)
+        ? credits.crew
+        : [],
+    },
+    videos: {
+      results: Array.isArray(videos.results)
+        ? videos.results
+        : [],
+    },
+    similar: {
+      results: Array.isArray(similar.results)
+        ? similar.results
+        : [],
+    },
+  };
+}
+
 export async function getTrendingMovies(
   params: MovieFilterParams = {},
 ): Promise<MovieListResult> {
@@ -316,7 +355,9 @@ export async function getMovieDetails(
       `/movies/${id}`,
     );
 
-  return response.data.data;
+  return normalizeMovieDetails(
+    response.data.data,
+  );
 }
 
 export async function getWatchProviders(
@@ -348,7 +389,8 @@ export async function getReviews(
     `/movies/${tmdbId}/reviews`,
   );
 
-  const data = response.data?.data ?? response.data;
+  const data =
+    response.data?.data ?? response.data;
 
   if (Array.isArray(data)) {
     return data;
@@ -372,7 +414,6 @@ export async function createReview(
 
   return response.data?.data ?? response.data;
 }
-
 
 export async function getRatingStats(
   tmdbId: string,

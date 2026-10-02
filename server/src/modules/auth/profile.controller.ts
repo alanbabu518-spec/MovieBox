@@ -1,14 +1,15 @@
-import { Response } from "express";
+import type { Request, Response } from "express";
 
 import { updateProfile } from "./profile.service.js";
 import { updateProfileSchema } from "./profile.validator.js";
-import { AuthenticatedRequest } from "../../shared/types/auth.js";
+import type { AuthenticatedRequest } from "../../shared/types/auth.js";
 
 export const updateUserProfile = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
 ) => {
-  const userId = req.userId;
+  const userId =
+    (req as AuthenticatedRequest).userId;
 
   if (!userId) {
     return res.status(401).json({

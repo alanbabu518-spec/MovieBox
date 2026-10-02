@@ -9,14 +9,39 @@ import {
   TMDBWatchProvidersResponse,
 } from "../../shared/types/tmdb.js";
 
-export const getMovieDetails = async (
-  tmdbId: number,
-) => {
+export const getMovieDetails = async (tmdbId: number) => {
   try {
-    const response =
-      await tmdbClient.get<TMDBMovieDetails>(
-        `/movie/${tmdbId}`,
-      );
+    const [movieResponse, creditsResponse, videosResponse, similarResponse] =
+      await Promise.all([
+        tmdbClient.get<TMDBMovieDetails>(`/movie/${tmdbId}`),
+        tmdbClient.get<TMDBCredits>(`/movie/${tmdbId}/credits`),
+        tmdbClient.get<TMDBVideosResponse>(`/movie/${tmdbId}/videos`),
+        tmdbClient.get<TMDBSimilarMoviesResponse>(`/movie/${tmdbId}/similar`),
+      ]);
+
+    return {
+      ...movieResponse.data,
+      credits: creditsResponse.data,
+      videos: {
+        results: videosResponse.data.results,
+      },
+      similar: {
+        page: similarResponse.data.page,
+        total_pages: similarResponse.data.total_pages,
+        total_results: similarResponse.data.total_results,
+        results: similarResponse.data.results,
+      },
+    };
+  } catch (error) {
+    return handleTMDBError(error);
+  }
+};
+
+export const getMovieCredits = async (tmdbId: number) => {
+  try {
+    const response = await tmdbClient.get<TMDBCredits>(
+      `/movie/${tmdbId}/credits`,
+    );
 
     return response.data;
   } catch (error) {
@@ -24,29 +49,11 @@ export const getMovieDetails = async (
   }
 };
 
-export const getMovieCredits = async (
-  tmdbId: number,
-) => {
+export const getMovieVideos = async (tmdbId: number) => {
   try {
-    const response =
-      await tmdbClient.get<TMDBCredits>(
-        `/movie/${tmdbId}/credits`,
-      );
-
-    return response.data;
-  } catch (error) {
-    return handleTMDBError(error);
-  }
-};
-
-export const getMovieVideos = async (
-  tmdbId: number,
-) => {
-  try {
-    const response =
-      await tmdbClient.get<TMDBVideosResponse>(
-        `/movie/${tmdbId}/videos`,
-      );
+    const response = await tmdbClient.get<TMDBVideosResponse>(
+      `/movie/${tmdbId}/videos`,
+    );
 
     return response.data.results;
   } catch (error) {
@@ -54,14 +61,11 @@ export const getMovieVideos = async (
   }
 };
 
-export const getMovieImages = async (
-  tmdbId: number,
-) => {
+export const getMovieImages = async (tmdbId: number) => {
   try {
-    const response =
-      await tmdbClient.get<TMDBImagesResponse>(
-        `/movie/${tmdbId}/images`,
-      );
+    const response = await tmdbClient.get<TMDBImagesResponse>(
+      `/movie/${tmdbId}/images`,
+    );
 
     return response.data;
   } catch (error) {
@@ -69,14 +73,11 @@ export const getMovieImages = async (
   }
 };
 
-export const getSimilarMovies = async (
-  tmdbId: number,
-) => {
+export const getSimilarMovies = async (tmdbId: number) => {
   try {
-    const response =
-      await tmdbClient.get<TMDBSimilarMoviesResponse>(
-        `/movie/${tmdbId}/similar`,
-      );
+    const response = await tmdbClient.get<TMDBSimilarMoviesResponse>(
+      `/movie/${tmdbId}/similar`,
+    );
 
     return {
       page: response.data.page,
@@ -89,14 +90,11 @@ export const getSimilarMovies = async (
   }
 };
 
-export const getMovieWatchProviders = async (
-  tmdbId: number,
-) => {
+export const getMovieWatchProviders = async (tmdbId: number) => {
   try {
-    const response =
-      await tmdbClient.get<TMDBWatchProvidersResponse>(
-        `/movie/${tmdbId}/watch/providers`,
-      );
+    const response = await tmdbClient.get<TMDBWatchProvidersResponse>(
+      `/movie/${tmdbId}/watch/providers`,
+    );
 
     return response.data;
   } catch (error) {
