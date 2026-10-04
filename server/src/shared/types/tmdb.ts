@@ -1,3 +1,8 @@
+export type TMDBGenre = {
+  id: number;
+  name: string;
+};
+
 export type TMDBMovie = {
   id: number;
   title: string;
@@ -9,6 +14,7 @@ export type TMDBMovie = {
   vote_count: number;
   popularity: number;
   original_language: string;
+  genre_ids?: number[];
 };
 
 export type TMDBMovieListResponse = {
@@ -18,11 +24,12 @@ export type TMDBMovieListResponse = {
   total_results: number;
 };
 
+export type TMDBGenreListResponse = {
+  genres: TMDBGenre[];
+};
+
 export type TMDBMovieDetails = TMDBMovie & {
-  genres: {
-    id: number;
-    name: string;
-  }[];
+  genres: TMDBGenre[];
   runtime: number | null;
   status: string;
   tagline: string | null;

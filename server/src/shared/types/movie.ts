@@ -1,4 +1,4 @@
-export type Movie = {
+export interface Movie {
   id: number;
   title: string;
   overview: string;
@@ -9,4 +9,6 @@ export type Movie = {
   voteCount: number;
   popularity: number;
   originalLanguage: string;
-};
+  genreIds: number[];
+  genres: string[];
+}

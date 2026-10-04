@@ -5,7 +5,6 @@ import type { Movie } from "../../types/movie";
 
 interface MovieGridProps {
   movies: Movie[];
-  /** How many leading cards load their posters eagerly. */
   priorityCount?: number;
   emptyMessage?: string;
 }
@@ -34,7 +33,7 @@ export default function MovieGrid({
   return (
     <ul
       role="list"
-      className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 md:gap-x-6 md:gap-y-11 lg:grid-cols-5 xl:gap-x-7"
+      className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 md:grid-cols-4 md:gap-x-5 md:gap-y-9 lg:grid-cols-6 lg:gap-x-5 lg:gap-y-10 xl:gap-x-6"
     >
       {movies.map((movie, index) => (
         <li key={movie.id}>

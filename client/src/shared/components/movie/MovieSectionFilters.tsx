@@ -139,7 +139,7 @@ function FilterDropdown({
   return (
     <div
       ref={containerRef}
-      className="relative z-30 shrink-0"
+      className="relative z-30 min-w-0"
     >
       <button
         type="button"
@@ -148,7 +148,7 @@ function FilterDropdown({
         onClick={() =>
           setOpen((current) => !current)
         }
-        className="relative z-30 flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium transition-colors hover:border-zinc-400 dark:hover:border-zinc-600"
+        className="relative z-30 flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-xs font-medium transition-colors hover:border-zinc-400 dark:hover:border-zinc-600 sm:h-9 sm:w-auto sm:justify-start"
         style={{
           backgroundColor: "var(--card)",
           borderColor: value
@@ -157,11 +157,13 @@ function FilterDropdown({
           color: "var(--text-primary)",
         }}
       >
-        <span>{label}</span>
+        <span className="shrink-0">
+          {label}
+        </span>
 
         {value && (
           <span
-            className="max-w-22.5 truncate font-semibold"
+            className="min-w-0 truncate font-semibold sm:max-w-22.5"
             style={{
               color: "var(--primary)",
             }}
@@ -172,7 +174,7 @@ function FilterDropdown({
 
         <ChevronDown
           size={14}
-          className={`transition-transform duration-200 ${
+          className={`ml-auto shrink-0 transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -180,7 +182,7 @@ function FilterDropdown({
 
       {open && (
         <div
-          className="absolute right-0 top-full z-100 mt-2 w-48 overflow-hidden rounded-lg border py-1 shadow-2xl"
+          className="absolute left-0 top-full z-100 mt-2 w-full min-w-44 max-w-[calc(100vw-32px)] overflow-hidden rounded-lg border py-1 shadow-2xl sm:left-auto sm:right-0 sm:w-48"
           style={{
             backgroundColor: "var(--card)",
             borderColor: "var(--border)",
@@ -208,17 +210,22 @@ function FilterDropdown({
                     onChange(option.value);
                     setOpen(false);
                   }}
-                  className="flex w-full items-center justify-between px-3 py-2.5 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                  className="flex min-h-10 w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                   style={{
                     color: selected
                       ? "var(--primary)"
                       : "var(--text-primary)",
                   }}
                 >
-                  <span>{option.label}</span>
+                  <span className="truncate">
+                    {option.label}
+                  </span>
 
                   {selected && (
-                    <Check size={14} />
+                    <Check
+                      size={14}
+                      className="shrink-0"
+                    />
                   )}
                 </button>
               );
@@ -251,9 +258,39 @@ export default function MovieSectionFilters({
 
   return (
     <div className="relative z-20 mt-5 overflow-visible pb-1">
-      <div className="flex min-w-max items-center gap-2">
+      <div className="mb-3 flex items-center gap-1.5 text-xs font-medium sm:hidden">
+        <SlidersHorizontal
+          size={14}
+          style={{
+            color: "var(--text-secondary)",
+          }}
+        />
+
+        <span
+          style={{
+            color: "var(--text-secondary)",
+          }}
+        >
+          Filters
+        </span>
+
+        {hasActiveFilters && (
+          <span
+            className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--primary) 12%, transparent)",
+              color: "var(--primary)",
+            }}
+          >
+            Active
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
         <div
-          className="mr-1 flex h-9 items-center gap-1.5 text-xs font-medium"
+          className="mr-1 hidden h-9 shrink-0 items-center gap-1.5 text-xs font-medium sm:flex"
           style={{
             color: "var(--text-secondary)",
           }}
@@ -302,13 +339,15 @@ export default function MovieSectionFilters({
           <button
             type="button"
             onClick={clearFilters}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:col-span-auto sm:h-9 sm:w-auto sm:justify-start"
             style={{
-              color: "var(--text-secondary)",
+              color:
+                "var(--text-secondary)",
             }}
           >
             <RotateCcw size={13} />
-            <span>Clear</span>
+
+            <span>Clear filters</span>
           </button>
         )}
       </div>

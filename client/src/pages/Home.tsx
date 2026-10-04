@@ -13,45 +13,31 @@ import {
   getUpcomingMovies,
 } from "../shared/services/movie.api";
 
-const mapMovies = (
+function mapMovies(
   movies: Awaited<
     ReturnType<typeof getTrendingMovies>
   >["movies"],
-): Movie[] => {
+): Movie[] {
   return movies
     .filter((movie) => movie.poster_path)
     .map((movie) => ({
       id: movie.id,
       title: movie.title,
-      posterUrl: `https://image.tmdb.org/t/p/w342${movie.poster_path}`,
-      backdropUrl: movie.backdrop_path
-        ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
-        : undefined,
-      releaseDate: movie.release_date,
-      rating: movie.vote_average,
       overview: movie.overview,
+      posterPath: movie.poster_path,
+      backdropPath: movie.backdrop_path,
+      releaseDate:
+        movie.release_date || null,
+      rating: movie.vote_average,
+      voteCount: 0,
+      popularity: 0,
+      originalLanguage: "",
+      genreIds: movie.genre_ids ?? [],
+      genres: movie.genres ?? [],
     }));
-};
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeout = 10000,
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      window.setTimeout(() => {
-        reject(
-          new Error(
-            "Request timed out",
-          ),
-        );
-      }, timeout);
-    }),
-  ]);
 }
 
-export default function Home() {
+function Home() {
   const [trendingMovies, setTrendingMovies] =
     useState<Movie[]>([]);
 
@@ -64,40 +50,25 @@ export default function Home() {
   const [loading, setLoading] =
     useState(true);
 
-  const [error, setError] =
-    useState("");
-
   useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
 
     const loadMovies = async () => {
       setLoading(true);
-      setError("");
-
-      const results =
-        await Promise.allSettled([
-          withTimeout(
-            getTrendingMovies(),
-          ),
-          withTimeout(
-            getUpcomingMovies(),
-          ),
-          withTimeout(
-            getPopularMovies(),
-          ),
-        ]);
-
-      if (cancelled) {
-        return;
-      }
 
       const [
         trendingResult,
         upcomingResult,
         popularResult,
-      ] = results;
+      ] = await Promise.allSettled([
+        getTrendingMovies(),
+        getUpcomingMovies(),
+        getPopularMovies(),
+      ]);
 
-      let hasError = false;
+      if (!mounted) {
+        return;
+      }
 
       if (
         trendingResult.status ===
@@ -109,12 +80,7 @@ export default function Home() {
           ),
         );
       } else {
-        console.error(
-          "Failed to load trending movies:",
-          trendingResult.reason,
-        );
-
-        hasError = true;
+        setTrendingMovies([]);
       }
 
       if (
@@ -127,12 +93,7 @@ export default function Home() {
           ),
         );
       } else {
-        console.error(
-          "Failed to load upcoming movies:",
-          upcomingResult.reason,
-        );
-
-        hasError = true;
+        setUpcomingMovies([]);
       }
 
       if (
@@ -145,18 +106,7 @@ export default function Home() {
           ),
         );
       } else {
-        console.error(
-          "Failed to load popular movies:",
-          popularResult.reason,
-        );
-
-        hasError = true;
-      }
-
-      if (hasError) {
-        setError(
-          "Some movie sections could not be loaded.",
-        );
+        setPopularMovies([]);
       }
 
       setLoading(false);
@@ -165,13 +115,13 @@ export default function Home() {
     loadMovies();
 
     return () => {
-      cancelled = true;
+      mounted = false;
     };
   }, []);
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden"
+      className="min-h-screen"
       style={{
         backgroundColor:
           "var(--background)",
@@ -183,62 +133,32 @@ export default function Home() {
       <main>
         <Hero />
 
-        <section className="mx-auto max-w-310 px-6 pb-28 pt-8 lg:px-8">
-          {loading ? (
-            <MovieLoadingSections />
-          ) : (
+        <div className="mx-auto w-full max-w-363 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+          {!loading && (
             <>
-              {error && (
-                <div
-                  className="mb-10 rounded-xl border p-5"
-                  style={{
-                    backgroundColor:
-                      "var(--card)",
-                    borderColor:
-                      "var(--border)",
-                  }}
-                >
-                  <p
-                    className="text-sm"
-                    style={{
-                      color:
-                        "var(--text-secondary)",
-                    }}
-                  >
-                    {error}
-                  </p>
-                </div>
-              )}
+              <MovieSection
+                title="Trending Movies"
+                movies={trendingMovies}
+                viewAllPath="/movies?category=trending"
+                category="trending"
+              />
 
-              {trendingMovies.length > 0 && (
-                <MovieSection
-                  title="Trending Movies"
-                  movies={trendingMovies}
-                  viewAllPath="/movies?category=trending"
-                  category="trending"
-                />
-              )}
+              <MovieSection
+                title="Upcoming Movies"
+                movies={upcomingMovies}
+                viewAllPath="/movies?category=upcoming"
+                category="upcoming"
+              />
 
-              {upcomingMovies.length > 0 && (
-                <MovieSection
-                  title="Upcoming Movies"
-                  movies={upcomingMovies}
-                  viewAllPath="/movies?category=upcoming"
-                  category="upcoming"
-                />
-              )}
-
-              {popularMovies.length > 0 && (
-                <MovieSection
-                  title="Popular Movies"
-                  movies={popularMovies}
-                  viewAllPath="/movies?category=popular"
-                  category="popular"
-                />
-              )}
+              <MovieSection
+                title="Popular Movies"
+                movies={popularMovies}
+                viewAllPath="/movies?category=popular"
+                category="popular"
+              />
             </>
           )}
-        </section>
+        </div>
       </main>
 
       <ProfileSetupModal />
@@ -246,74 +166,4 @@ export default function Home() {
   );
 }
 
-function MovieLoadingSections() {
-  return (
-    <>
-      <LoadingSection title="Trending Movies" />
-      <LoadingSection title="Upcoming Movies" />
-      <LoadingSection title="Popular Movies" />
-    </>
-  );
-}
-
-function LoadingSection({
-  title,
-}: {
-  title: string;
-}) {
-  return (
-    <section className="mb-20">
-      <div className="mb-6">
-        <div
-          className="mb-2 h-3 w-20 animate-pulse rounded"
-          style={{
-            backgroundColor:
-              "var(--card)",
-          }}
-        />
-
-        <div
-          className="h-8 w-48 animate-pulse rounded"
-          style={{
-            backgroundColor:
-              "var(--card)",
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 md:gap-x-6 lg:grid-cols-5 xl:grid-cols-6">
-        {Array.from({
-          length: 6,
-        }).map((_, index) => (
-          <div
-            key={`${title}-${index}`}
-          >
-            <div
-              className="aspect-2/3 animate-pulse rounded"
-              style={{
-                backgroundColor:
-                  "var(--card)",
-              }}
-            />
-
-            <div
-              className="mt-3 h-4 w-3/4 animate-pulse rounded"
-              style={{
-                backgroundColor:
-                  "var(--card)",
-              }}
-            />
-
-            <div
-              className="mt-2 h-3 w-1/2 animate-pulse rounded"
-              style={{
-                backgroundColor:
-                  "var(--card)",
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+export default Home;

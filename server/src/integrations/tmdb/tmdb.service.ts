@@ -1,11 +1,13 @@
 import axios from "axios";
-import https from "https";
 
 import { tmdbConfig } from "../../config/tmdb";
 import { cacheConfig } from "../../config/cache.js";
 import { redis } from "../../config/redis.js";
 import { normalizeTMDBMovie } from "../../shared/utils/movieNormalizer";
-import { TMDBMovieListResponse } from "../../shared/types/tmdb";
+import {
+  TMDBGenreListResponse,
+  TMDBMovieListResponse,
+} from "../../shared/types/tmdb";
 import { handleTMDBError } from "../../integrations/tmdb/tmdbRequest.service";
 import {
   movieIndustries,
@@ -15,20 +17,20 @@ import {
 const TRENDING_MOVIES_CACHE_KEY =
   "moviebox:cache:movies:trending";
 
-const tmdbHttpsAgent = new https.Agent({
-  keepAlive: false,
-  family: 4,
-});
+const MOVIE_GENRES_CACHE_KEY =
+  "moviebox:cache:genres:movie";
+
+const MOVIE_GENRES_CACHE_TTL = 86400;
 
 export const tmdbClient = axios.create({
   baseURL: tmdbConfig.baseUrl,
   params: {
     api_key: tmdbConfig.apiKey,
   },
-  timeout: 15000,
-  httpsAgent: tmdbHttpsAgent,
+  timeout: 30000,
   headers: {
     Accept: "application/json",
+    "User-Agent": "MovieBox/1.0",
   },
 });
 
@@ -84,6 +86,135 @@ function buildDiscoverParams(
   };
 }
 
+function logTMDBError(
+  operation: string,
+  error: unknown,
+) {
+  if (axios.isAxiosError(error)) {
+    console.error(
+      `TMDB ${operation} request failed`,
+    );
+
+    console.error(
+      "TMDB status:",
+      error.response?.status,
+    );
+
+    console.error(
+      "TMDB status text:",
+      error.response?.statusText,
+    );
+
+    console.error(
+      "TMDB response:",
+      error.response?.data,
+    );
+
+    console.error(
+      "TMDB message:",
+      error.message,
+    );
+
+    console.error(
+      "TMDB code:",
+      error.code,
+    );
+
+    console.error(
+      "TMDB URL:",
+      error.config?.url,
+    );
+
+    console.error(
+      "TMDB base URL:",
+      error.config?.baseURL,
+    );
+
+    console.error(
+      "TMDB params:",
+      {
+        ...error.config?.params,
+        api_key: error.config?.params?.api_key
+          ? "[hidden]"
+          : undefined,
+      },
+    );
+
+    return;
+  }
+
+  console.error(
+    `TMDB ${operation} request failed:`,
+    error,
+  );
+}
+
+async function getMovieGenreMap(): Promise<
+  Map<number, string>
+> {
+  const cachedGenres = await redis.get(
+    MOVIE_GENRES_CACHE_KEY,
+  );
+
+  if (cachedGenres) {
+    const genres = JSON.parse(
+      cachedGenres,
+    ) as {
+      id: number;
+      name: string;
+    }[];
+
+    return new Map(
+      genres.map((genre) => [
+        genre.id,
+        genre.name,
+      ]),
+    );
+  }
+
+  const response =
+    await tmdbClient.get<TMDBGenreListResponse>(
+      "/genre/movie/list",
+      {
+        params: {
+          language: "en-US",
+        },
+      },
+    );
+
+  const genres = response.data.genres;
+
+  await redis.set(
+    MOVIE_GENRES_CACHE_KEY,
+    JSON.stringify(genres),
+    "EX",
+    MOVIE_GENRES_CACHE_TTL,
+  );
+
+  return new Map(
+    genres.map((genre) => [
+      genre.id,
+      genre.name,
+    ]),
+  );
+}
+
+async function normalizeMovieResults(
+  results: Parameters<
+    typeof normalizeTMDBMovie
+  >[0][],
+) {
+  const genreMap =
+    await getMovieGenreMap();
+
+  return results.map((movie) =>
+    normalizeTMDBMovie(
+      movie,
+      genreMap,
+    ),
+  );
+}
+
 export const getTrendingMovies = async (
   params: MovieFilterParams = {},
 ) => {
@@ -102,16 +233,18 @@ export const getTrendingMovies = async (
           "/trending/movie/week",
         );
 
+      const movies =
+        await normalizeMovieResults(
+          response.data.results,
+        );
+
       const result = {
         page: response.data.page,
         totalPages:
           response.data.total_pages,
         totalResults:
           response.data.total_results,
-        movies:
-          response.data.results.map(
-            normalizeTMDBMovie,
-          ),
+        movies,
       };
 
       await redis.set(
@@ -123,8 +256,8 @@ export const getTrendingMovies = async (
 
       return result;
     } catch (error) {
-      console.error(
-        "TMDB trending movies request failed:",
+      logTMDBError(
+        "trending movies",
         error,
       );
 
@@ -132,12 +265,14 @@ export const getTrendingMovies = async (
     }
   }
 
-  const cacheKey = buildFilterCacheKey(
-    "trending",
-    params,
-  );
+  const cacheKey =
+    buildFilterCacheKey(
+      "trending",
+      params,
+    );
 
-  const cached = await redis.get(cacheKey);
+  const cached =
+    await redis.get(cacheKey);
 
   if (cached) {
     return JSON.parse(cached);
@@ -149,10 +284,17 @@ export const getTrendingMovies = async (
         "/discover/movie",
         {
           params: {
-            ...buildDiscoverParams(params),
+            ...buildDiscoverParams(
+              params,
+            ),
             sort_by: "popularity.desc",
           },
         },
+      );
+
+    const movies =
+      await normalizeMovieResults(
+        response.data.results,
       );
 
     const result = {
@@ -161,10 +303,7 @@ export const getTrendingMovies = async (
         response.data.total_pages,
       totalResults:
         response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
+      movies,
     };
 
     await redis.set(
@@ -176,8 +315,8 @@ export const getTrendingMovies = async (
 
     return result;
   } catch (error) {
-    console.error(
-      "TMDB filtered trending movies request failed:",
+    logTMDBError(
+      "filtered trending movies",
       error,
     );
 
@@ -185,42 +324,17 @@ export const getTrendingMovies = async (
   }
 };
 
-export const getLatestMovies = async () => {
-  try {
-    const response =
-      await tmdbClient.get<TMDBMovieListResponse>(
-        "/movie/now_playing",
-      );
-
-    return {
-      page: response.data.page,
-      totalPages:
-        response.data.total_pages,
-      totalResults:
-        response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
-    };
-  } catch (error) {
-    console.error(
-      "TMDB latest movies request failed:",
-      error,
-    );
-
-    return handleTMDBError(error);
-  }
-};
-
-export const getUpcomingMovies = async (
-  params: MovieFilterParams = {},
-) => {
-  if (!hasFilters(params)) {
+export const getLatestMovies =
+  async () => {
     try {
       const response =
         await tmdbClient.get<TMDBMovieListResponse>(
-          "/movie/upcoming",
+          "/movie/now_playing",
+        );
+
+      const movies =
+        await normalizeMovieResults(
+          response.data.results,
         );
 
       return {
@@ -229,81 +343,118 @@ export const getUpcomingMovies = async (
           response.data.total_pages,
         totalResults:
           response.data.total_results,
-        movies:
-          response.data.results.map(
-            normalizeTMDBMovie,
-          ),
+        movies,
       };
     } catch (error) {
-      console.error(
-        "TMDB upcoming movies request failed:",
+      logTMDBError(
+        "latest movies",
         error,
       );
 
       return handleTMDBError(error);
     }
-  }
+  };
 
-  const cacheKey = buildFilterCacheKey(
-    "upcoming",
-    params,
-  );
+export const getUpcomingMovies =
+  async (
+    params: MovieFilterParams = {},
+  ) => {
+    if (!hasFilters(params)) {
+      try {
+        const response =
+          await tmdbClient.get<TMDBMovieListResponse>(
+            "/movie/upcoming",
+          );
 
-  const cached = await redis.get(cacheKey);
+        const movies =
+          await normalizeMovieResults(
+            response.data.results,
+          );
 
-  if (cached) {
-    return JSON.parse(cached);
-  }
+        return {
+          page: response.data.page,
+          totalPages:
+            response.data.total_pages,
+          totalResults:
+            response.data.total_results,
+          movies,
+        };
+      } catch (error) {
+        logTMDBError(
+          "upcoming movies",
+          error,
+        );
 
-  try {
-    const today =
-      new Date()
-        .toISOString()
-        .split("T")[0];
+        return handleTMDBError(error);
+      }
+    }
 
-    const response =
-      await tmdbClient.get<TMDBMovieListResponse>(
-        "/discover/movie",
-        {
-          params: {
-            ...buildDiscoverParams(params),
-            sort_by:
-              "primary_release_date.asc",
-            "primary_release_date.gte":
-              today,
-          },
-        },
+    const cacheKey =
+      buildFilterCacheKey(
+        "upcoming",
+        params,
       );
 
-    const result = {
-      page: response.data.page,
-      totalPages:
-        response.data.total_pages,
-      totalResults:
-        response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
-    };
+    const cached =
+      await redis.get(cacheKey);
 
-    await redis.set(
-      cacheKey,
-      JSON.stringify(result),
-      "EX",
-      1800,
-    );
+    if (cached) {
+      return JSON.parse(cached);
+    }
 
-    return result;
-  } catch (error) {
-    console.error(
-      "TMDB filtered upcoming movies request failed:",
-      error,
-    );
+    try {
+      const today =
+        new Date()
+          .toISOString()
+          .split("T")[0];
 
-    return handleTMDBError(error);
-  }
-};
+      const response =
+        await tmdbClient.get<TMDBMovieListResponse>(
+          "/discover/movie",
+          {
+            params: {
+              ...buildDiscoverParams(
+                params,
+              ),
+              sort_by:
+                "primary_release_date.asc",
+              "primary_release_date.gte":
+                today,
+            },
+          },
+        );
+
+      const movies =
+        await normalizeMovieResults(
+          response.data.results,
+        );
+
+      const result = {
+        page: response.data.page,
+        totalPages:
+          response.data.total_pages,
+        totalResults:
+          response.data.total_results,
+        movies,
+      };
+
+      await redis.set(
+        cacheKey,
+        JSON.stringify(result),
+        "EX",
+        1800,
+      );
+
+      return result;
+    } catch (error) {
+      logTMDBError(
+        "filtered upcoming movies",
+        error,
+      );
+
+      return handleTMDBError(error);
+    }
+  };
 
 export const searchMovies = async (
   query: string,
@@ -321,20 +472,22 @@ export const searchMovies = async (
         },
       );
 
+    const movies =
+      await normalizeMovieResults(
+        response.data.results,
+      );
+
     return {
       page: response.data.page,
       totalPages:
         response.data.total_pages,
       totalResults:
         response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
+      movies,
     };
   } catch (error) {
-    console.error(
-      "TMDB movie search request failed:",
+    logTMDBError(
+      "movie search",
       error,
     );
 
@@ -345,12 +498,14 @@ export const searchMovies = async (
 export async function getIndustryTrendingMovies(
   industry: MovieIndustry,
 ) {
-  const config = movieIndustries[industry];
+  const config =
+    movieIndustries[industry];
 
   const cacheKey =
     `moviebox:cache:movies:trending:${industry}`;
 
-  const cached = await redis.get(cacheKey);
+  const cached =
+    await redis.get(cacheKey);
 
   if (cached) {
     return JSON.parse(cached);
@@ -365,12 +520,18 @@ export async function getIndustryTrendingMovies(
             with_original_language:
               config.language,
             region: config.region,
-            sort_by: "popularity.desc",
+            sort_by:
+              "popularity.desc",
             include_adult: false,
             include_video: false,
             page: 1,
           },
         },
+      );
+
+    const movies =
+      await normalizeMovieResults(
+        response.data.results,
       );
 
     const result = {
@@ -379,10 +540,7 @@ export async function getIndustryTrendingMovies(
         response.data.total_pages,
       totalResults:
         response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
+      movies,
     };
 
     await redis.set(
@@ -394,8 +552,8 @@ export async function getIndustryTrendingMovies(
 
     return result;
   } catch (error) {
-    console.error(
-      `TMDB industry request failed for ${industry}:`,
+    logTMDBError(
+      `industry ${industry}`,
       error,
     );
 
@@ -406,12 +564,14 @@ export async function getIndustryTrendingMovies(
 export const getPopularMovies = async (
   params: MovieFilterParams = {},
 ) => {
-  const cacheKey = buildFilterCacheKey(
-    "popular",
-    params,
-  );
+  const cacheKey =
+    buildFilterCacheKey(
+      "popular",
+      params,
+    );
 
-  const cached = await redis.get(cacheKey);
+  const cached =
+    await redis.get(cacheKey);
 
   if (cached) {
     return JSON.parse(cached);
@@ -420,13 +580,28 @@ export const getPopularMovies = async (
   try {
     const response =
       await tmdbClient.get<TMDBMovieListResponse>(
-        "/discover/movie",
+        hasFilters(params)
+          ? "/discover/movie"
+          : "/movie/popular",
         {
-          params: {
-            ...buildDiscoverParams(params),
-            sort_by: "popularity.desc",
-          },
+          params: hasFilters(params)
+            ? {
+                ...buildDiscoverParams(
+                  params,
+                ),
+                sort_by:
+                  "popularity.desc",
+              }
+            : {
+                page:
+                  params.page || 1,
+              },
         },
+      );
+
+    const movies =
+      await normalizeMovieResults(
+        response.data.results,
       );
 
     const result = {
@@ -435,10 +610,7 @@ export const getPopularMovies = async (
         response.data.total_pages,
       totalResults:
         response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
+      movies,
     };
 
     await redis.set(
@@ -450,8 +622,8 @@ export const getPopularMovies = async (
 
     return result;
   } catch (error) {
-    console.error(
-      "TMDB popular movies request failed:",
+    logTMDBError(
+      "popular movies",
       error,
     );
 
@@ -479,7 +651,8 @@ export async function discoverMovies(
     page,
   ].join(":");
 
-  const cached = await redis.get(cacheKey);
+  const cached =
+    await redis.get(cacheKey);
 
   if (cached) {
     return JSON.parse(cached);
@@ -492,7 +665,8 @@ export async function discoverMovies(
         {
           params: {
             page,
-            sort_by: "popularity.desc",
+            sort_by:
+              "popularity.desc",
             include_adult: false,
             include_video: false,
             with_genres:
@@ -507,16 +681,18 @@ export async function discoverMovies(
         },
       );
 
+    const movies =
+      await normalizeMovieResults(
+        response.data.results,
+      );
+
     const result = {
       page: response.data.page,
       totalPages:
         response.data.total_pages,
       totalResults:
         response.data.total_results,
-      movies:
-        response.data.results.map(
-          normalizeTMDBMovie,
-        ),
+      movies,
     };
 
     await redis.set(
@@ -528,11 +704,11 @@ export async function discoverMovies(
 
     return result;
   } catch (error) {
-    console.error(
-      "TMDB discover movies request failed:",
+    logTMDBError(
+      "discover movies",
       error,
     );
 
     return handleTMDBError(error);
   }
-};
+}

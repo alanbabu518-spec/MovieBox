@@ -5,14 +5,19 @@ import {
   useRef,
   useState,
 } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+
 import {
-  Link,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+
+import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
 
 import MovieCard from "../movie/MovieCard";
+
 import MovieSectionFilters, {
   type MovieFilters,
   type MovieFilterKey,
@@ -26,6 +31,8 @@ import {
   getUpcomingMovies,
   type MovieFilterParams,
 } from "../../services/movie.api";
+
+import { useAuth } from "../../../shared/context/AuthContext";
 
 interface MovieSectionProps {
   title: string;
@@ -58,13 +65,18 @@ function mapMovies(
     .map((movie) => ({
       id: movie.id,
       title: movie.title,
-      posterUrl: `https://image.tmdb.org/t/p/w342${movie.poster_path}`,
-      backdropUrl: movie.backdrop_path
-        ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
-        : undefined,
-      releaseDate: movie.release_date,
-      rating: movie.vote_average,
       overview: movie.overview,
+      posterPath: movie.poster_path,
+      backdropPath:
+        movie.backdrop_path,
+      releaseDate:
+        movie.release_date || null,
+      rating: movie.vote_average,
+      voteCount: 0,
+      popularity: 0,
+      originalLanguage: "",
+      genreIds: movie.genre_ids ?? [],
+      genres: movie.genres ?? [],
     }));
 }
 
@@ -151,7 +163,9 @@ function MovieSection({
 }: MovieSectionProps) {
   const navigate = useNavigate();
 
-  const [searchParams, setSearchParams] =
+  const { user, loading } = useAuth();
+
+  const [searchParams] =
     useSearchParams();
 
   const [isMobile, setIsMobile] =
@@ -196,16 +210,18 @@ function MovieSection({
   const [loadMoreLoading, setLoadMoreLoading] =
     useState(false);
 
-  const requestId =
-    useRef(0);
+  const requestId = useRef(0);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia(
-      "(max-width: 639px)",
-    );
+    const mediaQuery =
+      window.matchMedia(
+        "(max-width: 639px)",
+      );
 
     const handleChange = () => {
-      setIsMobile(mediaQuery.matches);
+      setIsMobile(
+        mediaQuery.matches,
+      );
     };
 
     handleChange();
@@ -224,13 +240,16 @@ function MovieSection({
   }, []);
 
   useEffect(() => {
-    setVisibleCount((currentCount) =>
+    setVisibleCount(
       Math.min(
         initialVisibleCount,
         loadedMovies.length,
       ),
     );
-  }, [isMobile]);
+  }, [
+    initialVisibleCount,
+    loadedMovies.length,
+  ]);
 
   useEffect(() => {
     const urlFilters =
@@ -252,15 +271,18 @@ function MovieSection({
           )
         ) {
           setLoadedMovies(movies);
+
           setVisibleCount(
             Math.min(
               initialVisibleCount,
               movies.length,
             ),
           );
+
           setCurrentPage(1);
           setTotalPages(1);
           setFilterLoading(false);
+
           return;
         }
 
@@ -338,44 +360,61 @@ function MovieSection({
     searchParams,
     category,
     movies,
+    initialVisibleCount,
   ]);
 
-  const handleFilterChange = useCallback(
-    (
-      key: MovieFilterKey,
-      value: string,
-    ) => {
-      const nextParams =
-        new URLSearchParams(
-          searchParams,
-        );
+  const handleFilterChange =
+    useCallback(
+      (
+        key: MovieFilterKey,
+        value: string,
+      ) => {
+        const nextParams =
+          new URLSearchParams(
+            searchParams,
+          );
 
-      nextParams.set(
-        "category",
-        category,
-      );
-
-      nextParams.delete("page");
-
-      if (value) {
         nextParams.set(
-          key,
-          value,
+          "category",
+          category,
         );
-      } else {
-        nextParams.delete(key);
-      }
 
-      navigate(
-        `/movies?${nextParams.toString()}`,
-      );
-    },
-    [
-      searchParams,
-      navigate,
-      category,
-    ],
-  );
+        nextParams.delete("page");
+
+        if (value) {
+          nextParams.set(
+            key,
+            value,
+          );
+        } else {
+          nextParams.delete(key);
+        }
+
+        navigate(
+          `/movies?${nextParams.toString()}`,
+        );
+      },
+      [
+        searchParams,
+        navigate,
+        category,
+      ],
+    );
+
+  const handleViewAll = () => {
+    if (loading) {
+      return;
+    }
+
+    if (!user) {
+      navigate("/signin");
+      return;
+    }
+
+    if (viewAllPath) {
+      navigate(viewAllPath);
+    }
+  };
 
   const handleViewMore =
     useCallback(async () => {
@@ -505,7 +544,8 @@ function MovieSection({
           <h2
             className="font-display text-2xl font-bold tracking-tight sm:text-3xl"
             style={{
-              color: "var(--text-primary)",
+              color:
+                "var(--text-primary)",
             }}
           >
             {title}
@@ -513,11 +553,13 @@ function MovieSection({
         </div>
 
         {viewAllPath && (
-          <Link
-            to={viewAllPath}
+          <button
+            type="button"
+            onClick={handleViewAll}
             className="group flex shrink-0 items-center gap-1 text-sm font-medium transition-colors"
             style={{
-              color: "var(--text-secondary)",
+              color:
+                "var(--text-secondary)",
             }}
           >
             <span>View all</span>
@@ -526,7 +568,7 @@ function MovieSection({
               size={16}
               className="transition-transform duration-200 group-hover:translate-x-0.5"
             />
-          </Link>
+          </button>
         )}
       </div>
 
@@ -556,7 +598,7 @@ function MovieSection({
           </div>
         )}
 
-        <div className="mt-7 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 md:gap-x-6 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="mt-7 grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 sm:gap-x-7 sm:gap-y-14 md:grid-cols-4 md:gap-x-8 lg:grid-cols-5 xl:grid-cols-6">
           {visibleMovies.map(
             (movie, index) => (
               <MovieCard
@@ -578,8 +620,8 @@ function MovieSection({
               }}
             >
               <p className="text-sm">
-                No movies found with these
-                filters.
+                No movies found with
+                these filters.
               </p>
             </div>
           )}
@@ -606,7 +648,10 @@ function MovieSection({
                     size={16}
                     className="animate-spin"
                   />
-                  <span>Loading...</span>
+
+                  <span>
+                    Loading...
+                  </span>
                 </>
               ) : (
                 <span>

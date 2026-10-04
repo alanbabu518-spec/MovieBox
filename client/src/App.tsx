@@ -1,10 +1,5 @@
 import { useEffect } from "react";
-import {
-  BrowserRouter,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import Home from "./pages/Home";
 import Movies from "./pages/Movies";
@@ -33,6 +28,18 @@ function ScrollToTop() {
   return null;
 }
 
+function GlobalAIChatbot() {
+  const { pathname } = useLocation();
+
+  const authPages = ["/signin", "/auth/verify"];
+
+  if (authPages.includes(pathname)) {
+    return null;
+  }
+
+  return <MovieAIChatbot />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -40,53 +47,26 @@ export default function App() {
         <ScrollToTop />
 
         <Routes>
-          <Route
-            path="/"
-            element={<Home />}
-          />
+          <Route path="/" element={<Home />} />
 
-          <Route
-            path="/movies"
-            element={<Movies />}
-          />
+          <Route path="/movies" element={<Movies />} />
 
-          <Route
-            path="/movie/:id"
-            element={<MovieDetails />}
-          />
+          <Route path="/movie/:id" element={<MovieDetails />} />
 
-          <Route
-            path="/signin"
-            element={<SignIn />}
-          />
+          <Route path="/signin" element={<SignIn />} />
 
-          <Route
-            path="/auth/verify"
-            element={<AuthVerify />}
-          />
+          <Route path="/auth/verify" element={<AuthVerify />} />
 
-          <Route
-            path="/watchlist"
-            element={<Watchlist />}
-          />
+          <Route path="/watchlist" element={<Watchlist />} />
 
-          <Route
-            path="/favorites"
-            element={<Favorites />}
-          />
+          <Route path="/favorites" element={<Favorites />} />
 
-          <Route
-            path="/ai/search"
-            element={<AISearch />}
-          />
+          <Route path="/ai/search" element={<AISearch />} />
 
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
 
-        <MovieAIChatbot />
+        <GlobalAIChatbot />
       </BrowserRouter>
     </AuthProvider>
   );

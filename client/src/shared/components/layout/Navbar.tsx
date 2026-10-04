@@ -179,7 +179,7 @@ function DropdownMenu({
   return (
     <div className="absolute left-0 top-full pt-2">
       <div
-        className="w-max min-w-[280px] rounded-2xl border p-3 shadow-2xl"
+        className="w-max min-w-70 rounded-2xl border p-3 shadow-2xl"
         style={{
           backgroundColor: "var(--background)",
           borderColor: "var(--border)",
@@ -187,7 +187,7 @@ function DropdownMenu({
       >
         <div className="flex gap-6">
           {sections.map((section) => (
-            <div key={section.title} className="min-w-[240px]">
+            <div key={section.title} className="min-w-70">
               <p
                 className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
                 style={{
@@ -507,7 +507,7 @@ export default function Navbar() {
                 text-sm
                 font-medium
                 transition-colors
-                hover:text-[var(--primary)]
+                hover:text-(--primary)]
               "
               style={{
                 color: "var(--text-primary)",

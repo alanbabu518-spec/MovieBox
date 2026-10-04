@@ -15,13 +15,16 @@ export default function SimilarMovies({
     .map((movie) => ({
       id: movie.id,
       title: movie.title,
-      posterUrl: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-      backdropUrl: movie.backdrop_path
-        ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
-        : undefined,
-      releaseDate: movie.release_date,
-      rating: movie.vote_average,
       overview: movie.overview,
+      posterPath: movie.poster_path,
+      backdropPath: movie.backdrop_path,
+      releaseDate: movie.release_date || null,
+      rating: movie.vote_average,
+      voteCount: movie.vote_count ?? 0,
+      popularity: movie.popularity ?? 0,
+      originalLanguage: movie.original_language ?? "",
+      genreIds: movie.genre_ids ?? [],
+      genres: movie.genres ?? [],
     }));
 
   if (similarMovies.length === 0) {
@@ -50,7 +53,7 @@ export default function SimilarMovies({
         </h2>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 sm:gap-y-12 md:grid-cols-4 md:gap-x-8 lg:grid-cols-5 xl:grid-cols-6">
         {similarMovies.map((movie) => (
           <MovieCard
             key={movie.id}

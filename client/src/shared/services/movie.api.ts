@@ -15,7 +15,12 @@ export interface TMDBMovie {
   backdrop_path: string | null;
   release_date: string;
   vote_average: number;
+  vote_count?: number;
+  popularity?: number;
+  original_language?: string;
   overview: string;
+  genre_ids?: number[];
+  genres?: string[];
   videos?: TMDBVideo[];
 }
 
@@ -30,6 +35,8 @@ interface NormalizedMovie {
   voteCount: number;
   popularity: number;
   originalLanguage: string;
+  genreIds?: number[];
+  genres?: string[];
 }
 
 interface MovieListData {
@@ -192,6 +199,8 @@ function normalizeMovie(
     release_date: movie.releaseDate,
     vote_average: movie.rating,
     overview: movie.overview,
+    genre_ids: movie.genreIds ?? [],
+    genres: movie.genres ?? [],
   };
 }
 

@@ -23,13 +23,16 @@ const mapMovies = (
     .map((movie) => ({
       id: movie.id,
       title: movie.title,
-      posterUrl: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-      backdropUrl: movie.backdrop_path
-        ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
-        : undefined,
-      releaseDate: movie.release_date,
-      rating: movie.vote_average,
       overview: movie.overview,
+      posterPath: movie.poster_path,
+      backdropPath: movie.backdrop_path ?? null,
+      releaseDate: movie.release_date || null,
+      rating: movie.vote_average,
+      voteCount: movie.vote_count ?? 0,
+      popularity: movie.popularity ?? 0,
+      originalLanguage: movie.original_language ?? "",
+      genreIds: movie.genre_ids ?? [],
+      genres: movie.genres ?? [],
     }));
 };
 
@@ -71,7 +74,10 @@ const languages = [
 
 const currentYear = new Date().getFullYear();
 
-const years = Array.from({ length: 30 }, (_, index) => currentYear - index);
+const years = Array.from(
+  { length: 30 },
+  (_, index) => currentYear - index,
+);
 
 type MovieCategory = "trending" | "upcoming" | "popular";
 
@@ -90,6 +96,7 @@ export default function Movies() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+
   const categoryParam = searchParams.get("category");
 
   const category: MovieCategory = isMovieCategory(categoryParam)
@@ -97,20 +104,18 @@ export default function Movies() {
     : "popular";
 
   const genre = searchParams.get("genre") ?? "";
-
   const language = searchParams.get("language") ?? "";
-
   const year = searchParams.get("year") ?? "";
-
   const minRating = searchParams.get("rating") ?? "";
 
-  const hasActiveFilters = Boolean(genre || language || year || minRating);
+  const hasActiveFilters = Boolean(
+    genre || language || year || minRating,
+  );
 
   const updateUrl = (key: string, value: string) => {
     const nextParams = new URLSearchParams(searchParams);
 
     nextParams.set("category", category);
-
     nextParams.delete("page");
 
     if (value) {
@@ -179,17 +184,13 @@ export default function Movies() {
         );
 
         setMovies(mapMovies(result.movies));
-
         setPage(result.page);
-
         setTotalPages(result.totalPages);
-
         setTotalResults(result.totalResults);
       } catch (error) {
         console.error("Movie category loading failed:", error);
 
         setError("Unable to load movies right now.");
-
         setMovies([]);
       } finally {
         setLoading(false);
@@ -197,7 +198,15 @@ export default function Movies() {
     };
 
     loadMovies();
-  }, [category, genre, language, year, minRating, query, searchParams]);
+  }, [
+    category,
+    genre,
+    language,
+    year,
+    minRating,
+    query,
+    searchParams,
+  ]);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
@@ -215,17 +224,13 @@ export default function Movies() {
         const result = await searchMovies(trimmedQuery, 1);
 
         setMovies(mapMovies(result.movies));
-
         setPage(result.page);
-
         setTotalPages(result.totalPages);
-
         setTotalResults(result.totalResults);
       } catch (error) {
         console.error("Movie search failed:", error);
 
         setError("Unable to search movies right now.");
-
         setMovies([]);
       } finally {
         setLoading(false);
@@ -250,11 +255,8 @@ export default function Movies() {
         const result = await searchMovies(query.trim(), nextPage);
 
         setMovies(mapMovies(result.movies));
-
         setPage(result.page);
-
         setTotalPages(result.totalPages);
-
         setTotalResults(result.totalResults);
       } else {
         const result = await loadCategoryMovies(
@@ -268,11 +270,8 @@ export default function Movies() {
         );
 
         setMovies(mapMovies(result.movies));
-
         setPage(result.page);
-
         setTotalPages(result.totalPages);
-
         setTotalResults(result.totalResults);
 
         const nextParams = new URLSearchParams(searchParams);
@@ -407,12 +406,15 @@ export default function Movies() {
               backgroundColor: showFilters
                 ? "var(--primary)"
                 : "var(--surface)",
-              borderColor: showFilters ? "var(--primary)" : "var(--border)",
-              color: showFilters ? "#ffffff" : "var(--text-primary)",
+              borderColor: showFilters
+                ? "var(--primary)"
+                : "var(--border)",
+              color: showFilters
+                ? "#ffffff"
+                : "var(--text-primary)",
             }}
           >
             <SlidersHorizontal size={18} />
-
             <span className="hidden sm:inline">Filters</span>
           </button>
         </div>
@@ -438,7 +440,9 @@ export default function Movies() {
 
                 <select
                   value={genre}
-                  onChange={(event) => updateUrl("genre", event.target.value)}
+                  onChange={(event) =>
+                    updateUrl("genre", event.target.value)
+                  }
                   className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
                   style={{
                     borderColor: "var(--border)",
@@ -500,7 +504,9 @@ export default function Movies() {
 
                 <select
                   value={year}
-                  onChange={(event) => updateUrl("year", event.target.value)}
+                  onChange={(event) =>
+                    updateUrl("year", event.target.value)
+                  }
                   className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
                   style={{
                     borderColor: "var(--border)",
@@ -530,7 +536,9 @@ export default function Movies() {
 
                 <select
                   value={minRating}
-                  onChange={(event) => updateUrl("rating", event.target.value)}
+                  onChange={(event) =>
+                    updateUrl("rating", event.target.value)
+                  }
                   className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
                   style={{
                     borderColor: "var(--border)",
@@ -585,7 +593,9 @@ export default function Movies() {
                     }}
                   >
                     {totalResults.toLocaleString()}{" "}
-                    {query.trim() ? `results for "${query}"` : "movies found"}
+                    {query.trim()
+                      ? `results for "${query}"`
+                      : "movies found"}
                   </p>
                 )}
               </div>
@@ -625,9 +635,11 @@ export default function Movies() {
               <MovieSearchSkeleton />
             ) : movies.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 sm:gap-x-7 sm:gap-y-14 md:grid-cols-4 md:gap-x-8 lg:grid-cols-5 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 md:gap-x-5 md:gap-y-10 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10 xl:grid-cols-6 xl:gap-x-6">
                   {movies.map((movie) => (
-                    <MovieCard key={movie.id} movie={movie} />
+                    <div key={movie.id} className="min-w-0">
+                      <MovieCard movie={movie} />
+                    </div>
                   ))}
                 </div>
 
@@ -718,11 +730,9 @@ export default function Movies() {
 
 function MovieSearchSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 sm:gap-x-7 sm:gap-y-14 md:grid-cols-4 md:gap-x-8 lg:grid-cols-5 xl:grid-cols-6">
-      {Array.from({
-        length: 12,
-      }).map((_, index) => (
-        <div key={index}>
+    <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 md:gap-x-5 md:gap-y-10 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10 xl:grid-cols-6 xl:gap-x-6">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div key={index} className="min-w-0">
           <div
             className="aspect-2/3 animate-pulse rounded-lg"
             style={{
@@ -731,14 +741,14 @@ function MovieSearchSkeleton() {
           />
 
           <div
-            className="mt-3 h-4 w-3/4 animate-pulse rounded"
+            className="mt-2 h-4 w-3/4 animate-pulse rounded"
             style={{
               backgroundColor: "var(--card)",
             }}
           />
 
           <div
-            className="mt-2 h-3 w-1/2 animate-pulse rounded"
+            className="mt-1.5 h-3 w-1/2 animate-pulse rounded"
             style={{
               backgroundColor: "var(--card)",
             }}
