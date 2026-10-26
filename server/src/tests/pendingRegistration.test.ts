@@ -1,5 +1,4 @@
 import {
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -7,42 +6,44 @@ import {
   vi,
 } from "vitest";
 
-const redisMock = {
-  set: vi.fn(),
-  get: vi.fn(),
-  del: vi.fn(),
-  ttl: vi.fn(),
-};
+const { redisMock } = vi.hoisted(() => ({
+  redisMock: {
+    set: vi.fn(),
+    get: vi.fn(),
+    del: vi.fn(),
+    ttl: vi.fn(),
+  },
+}));
 
 vi.mock("../config/redis.js", () => ({
   redis: redisMock,
 }));
 
-let createPendingRegistration: typeof import("../modules/auth/pendingRegistration.service.js").createPendingRegistration;
-let getPendingRegistration: typeof import("../modules/auth/pendingRegistration.service.js").getPendingRegistration;
-let incrementOTPAttempts: typeof import("../modules/auth/pendingRegistration.service.js").incrementOTPAttempts;
-let deletePendingRegistration: typeof import("../modules/auth/pendingRegistration.service.js").deletePendingRegistration;
-let verifyPendingOTP: typeof import("../modules/auth/pendingRegistration.service.js").verifyPendingOTP;
+import {
+  createPendingRegistration,
+  getPendingRegistration,
+  incrementOTPAttempts,
+  deletePendingRegistration,
+  verifyPendingOTP,
+} from "../modules/auth/pendingRegistration.service.js";
 
-beforeAll(async () => {
-  const pendingRegistrationService =
-    await import("../modules/auth/pendingRegistration.service.js");
+import { createHash } from "node:crypto";
 
-  createPendingRegistration =
-    pendingRegistrationService.createPendingRegistration;
+const registrationKey =
+  "moviebox:pending-registration:alan@example.com";
 
-  getPendingRegistration =
-    pendingRegistrationService.getPendingRegistration;
-
-  incrementOTPAttempts =
-    pendingRegistrationService.incrementOTPAttempts;
-
-  deletePendingRegistration =
-    pendingRegistrationService.deletePendingRegistration;
-
-  verifyPendingOTP =
-    pendingRegistrationService.verifyPendingOTP;
-});
+function createRegistration(overrides: Record<string, unknown> = {}) {
+  return {
+    name: "Alan",
+    email: "alan@example.com",
+    passwordHash: "hashed-password",
+    otpHash: createHash("sha256")
+      .update("123456")
+      .digest("hex"),
+    attempts: 0,
+    ...overrides,
+  };
+}
 
 describe("pendingRegistration service", () => {
   beforeEach(() => {
@@ -66,16 +67,14 @@ describe("pendingRegistration service", () => {
     expect(args).toBeDefined();
 
     if (!args) {
-      return;
+      throw new Error("Redis SET was not called");
     }
 
     const [key, value, expiration, ttl] = args;
 
-    expect(key).toBe(
-      "moviebox:pending-registration:alan@example.com",
-    );
+    expect(key).toBe(registrationKey);
 
-    const data = JSON.parse(value);
+    const data = JSON.parse(value as string);
 
     expect(data.name).toBe("Alan");
     expect(data.email).toBe("alan@example.com");
@@ -90,13 +89,7 @@ describe("pendingRegistration service", () => {
 
   it("retrieves pending registration", async () => {
     redisMock.get.mockResolvedValue(
-      JSON.stringify({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash: "hashed-password",
-        otpHash: "hash",
-        attempts: 0,
-      }),
+      JSON.stringify(createRegistration()),
     );
 
     const result =
@@ -119,13 +112,7 @@ describe("pendingRegistration service", () => {
 
   it("increments OTP attempts", async () => {
     redisMock.get.mockResolvedValue(
-      JSON.stringify({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash: "hashed-password",
-        otpHash: "hash",
-        attempts: 1,
-      }),
+      JSON.stringify(createRegistration({ attempts: 1 })),
     );
 
     redisMock.ttl.mockResolvedValue(500);
@@ -140,12 +127,11 @@ describe("pendingRegistration service", () => {
     expect(args).toBeDefined();
 
     if (!args) {
-      return;
+      throw new Error("Redis SET was not called");
     }
 
     const [, value, expiration, ttl] = args;
-
-    const data = JSON.parse(value);
+    const data = JSON.parse(value as string);
 
     expect(data.attempts).toBe(2);
     expect(expiration).toBe("EX");
@@ -153,62 +139,37 @@ describe("pendingRegistration service", () => {
   });
 
   it("rejects an incorrect OTP", async () => {
-    const crypto = await import("node:crypto");
+    const registration = createRegistration();
 
-    const correctHash = crypto
-      .createHash("sha256")
-      .update("123456")
-      .digest("hex");
-
-    redisMock.get
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          name: "Alan",
-          email: "alan@example.com",
-          passwordHash: "hashed-password",
-          otpHash: correctHash,
-          attempts: 0,
-        }),
-      )
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          name: "Alan",
-          email: "alan@example.com",
-          passwordHash: "hashed-password",
-          otpHash: correctHash,
-          attempts: 0,
-        }),
-      );
+    redisMock.get.mockResolvedValue(
+      JSON.stringify(registration),
+    );
 
     redisMock.ttl.mockResolvedValue(500);
     redisMock.set.mockResolvedValue("OK");
 
     await expect(
-      verifyPendingOTP(
-        "alan@example.com",
-        "999999",
-      ),
+      verifyPendingOTP("alan@example.com", "999999"),
     ).rejects.toThrow("Invalid OTP");
 
     expect(redisMock.set).toHaveBeenCalled();
+
+    const args = redisMock.set.mock.calls[0];
+
+    expect(args).toBeDefined();
+
+    if (!args) {
+      throw new Error("Redis SET was not called");
+    }
+
+    const data = JSON.parse(args[1] as string);
+
+    expect(data.attempts).toBe(1);
   });
 
   it("accepts the correct OTP", async () => {
-    const crypto = await import("node:crypto");
-
-    const correctHash = crypto
-      .createHash("sha256")
-      .update("123456")
-      .digest("hex");
-
     redisMock.get.mockResolvedValue(
-      JSON.stringify({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash: "hashed-password",
-        otpHash: correctHash,
-        attempts: 0,
-      }),
+      JSON.stringify(createRegistration()),
     );
 
     const result = await verifyPendingOTP(
@@ -222,32 +183,21 @@ describe("pendingRegistration service", () => {
 
   it("blocks verification after five failed attempts", async () => {
     redisMock.get.mockResolvedValue(
-      JSON.stringify({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash: "hashed-password",
-        otpHash: "some-hash",
-        attempts: 5,
-      }),
+      JSON.stringify(createRegistration({ attempts: 5 })),
     );
 
     await expect(
-      verifyPendingOTP(
-        "alan@example.com",
-        "123456",
-      ),
+      verifyPendingOTP("alan@example.com", "123456"),
     ).rejects.toThrow("Too many OTP attempts");
   });
 
   it("deletes pending registration", async () => {
     redisMock.del.mockResolvedValue(1);
 
-    await deletePendingRegistration(
-      "alan@example.com",
-    );
+    await deletePendingRegistration("alan@example.com");
 
     expect(redisMock.del).toHaveBeenCalledWith(
-      "moviebox:pending-registration:alan@example.com",
+      registrationKey,
     );
   });
 });
