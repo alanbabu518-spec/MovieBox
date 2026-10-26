@@ -1,17 +1,12 @@
-import MovieCard from "../movie/MovieCard";
+import MovieSection from "../home/MovieSection";
+
 import type { Movie } from "../../types/movie";
 import type { TMDBMovie } from "../../services/movie.api";
 
-interface SimilarMoviesProps {
-  movies: TMDBMovie[];
-}
-
-export default function SimilarMovies({
-  movies,
-}: SimilarMoviesProps) {
-  const similarMovies: Movie[] = movies
+export default function SimilarMovies({ movies }: { movies: TMDBMovie[] }) {
+  const similar: Movie[] = movies
     .filter((movie) => movie.poster_path)
-    .slice(0, 6)
+    .slice(0, 12)
     .map((movie) => ({
       id: movie.id,
       title: movie.title,
@@ -27,40 +22,13 @@ export default function SimilarMovies({
       genres: movie.genres ?? [],
     }));
 
-  if (similarMovies.length === 0) {
+  if (similar.length === 0) {
     return null;
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 pb-20 lg:px-8">
-      <div className="mb-8">
-        <p
-          className="mb-2 text-xs font-semibold uppercase tracking-[0.22em]"
-          style={{
-            color: "var(--primary)",
-          }}
-        >
-          MovieBox
-        </p>
-
-        <h2
-          className="font-display text-2xl font-bold sm:text-3xl"
-          style={{
-            color: "var(--text-primary)",
-          }}
-        >
-          Similar Movies
-        </h2>
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 sm:gap-y-12 md:grid-cols-4 md:gap-x-8 lg:grid-cols-5 xl:grid-cols-6">
-        {similarMovies.map((movie) => (
-          <MovieCard
-            key={movie.id}
-            movie={movie}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="mx-auto max-w-[1400px] px-4 pt-2 sm:px-6 lg:px-8">
+      <MovieSection title="Similar Movies" movies={similar} />
+    </div>
   );
 }

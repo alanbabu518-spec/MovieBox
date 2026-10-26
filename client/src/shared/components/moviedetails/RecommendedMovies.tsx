@@ -7,9 +7,7 @@ import {
 import type { Movie } from "../../types/movie";
 
 export default function RecommendedMovies() {
-  const [movies, setMovies] = useState<
-    RecommendationMovie[]
-  >([]);
+  const [movies, setMovies] = useState<RecommendationMovie[]>([]);
 
   useEffect(() => {
     const loadRecommendations = async () => {
@@ -17,10 +15,7 @@ export default function RecommendedMovies() {
         const data = await getRecommendations();
         setMovies(data);
       } catch (error) {
-        console.error(
-          "Failed to load recommendations:",
-          error,
-        );
+        console.error("Failed to load recommendations:", error);
       }
     };
 
@@ -33,10 +28,16 @@ export default function RecommendedMovies() {
     .map((movie) => ({
       id: movie.tmdbId,
       title: movie.title,
-      posterUrl: `https://image.tmdb.org/t/p/w500${movie.posterPath}`,
-      backdropUrl: movie.backdropPath
-        ? `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
-        : undefined,
+      overview: "",
+      posterPath: movie.posterPath,
+      backdropPath: movie.backdropPath,
+      releaseDate: null,
+      rating: 0,
+      voteCount: 0,
+      popularity: 0,
+      originalLanguage: "",
+      genreIds: [],
+      genres: [],
     }));
 
   if (recommendedMovies.length === 0) {
@@ -48,18 +49,14 @@ export default function RecommendedMovies() {
       <div className="mb-8">
         <p
           className="mb-2 text-xs font-semibold uppercase tracking-[0.22em]"
-          style={{
-            color: "var(--primary)",
-          }}
+          style={{ color: "var(--primary)" }}
         >
           MovieBox
         </p>
 
         <h2
           className="font-display text-2xl font-bold sm:text-3xl"
-          style={{
-            color: "var(--text-primary)",
-          }}
+          style={{ color: "var(--text-primary)" }}
         >
           Recommended for You
         </h2>
@@ -67,10 +64,7 @@ export default function RecommendedMovies() {
 
       <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {recommendedMovies.map((movie) => (
-          <MovieCard
-            key={movie.id}
-            movie={movie}
-          />
+          <MovieCard key={movie.id} movie={movie} />
         ))}
       </div>
     </section>

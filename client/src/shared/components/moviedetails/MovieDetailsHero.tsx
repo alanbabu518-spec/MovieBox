@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { ArrowLeft, Clock, Play, Share2, Star } from "lucide-react";
+import { cn } from "../../lib/cn";
+import { ArrowLeft, Play, Share2, Star } from "lucide-react";
 
 import WatchlistButton from "../movie/WatchlistButton";
 import FavoriteButton from "../movie/FavoriteButton";
-import type { MovieDetails } from "../../../shared/services/movie.api";
+
+import type { MovieDetails } from "../../services/movie.api";
+import { formatRuntime } from "../../lib/Format";
 
 interface MovieDetailsHeroProps {
   movie: MovieDetails;
@@ -12,8 +15,8 @@ interface MovieDetailsHeroProps {
   onBack: () => void;
 }
 
-const ghostButton =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-4 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2";
+const ghost =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur-md transition-[transform,background-color] duration-150 hover:bg-white/20 active:scale-95";
 
 export default function MovieDetailsHero({
   movie,
@@ -28,15 +31,7 @@ export default function MovieDetailsHero({
     ? new Date(movie.release_date).getFullYear()
     : null;
 
-  const hours = movie.runtime ? Math.floor(movie.runtime / 60) : 0;
-  const minutes = movie.runtime ? movie.runtime % 60 : 0;
-
-  const runtime = movie.runtime
-    ? hours > 0
-      ? `${hours}h ${minutes}m`
-      : `${minutes}m`
-    : null;
-
+  const runtime = formatRuntime(movie.runtime);
   const longOverview = (movie.overview?.length ?? 0) > 220;
 
   const handleShare = async () => {
@@ -44,65 +39,55 @@ export default function MovieDetailsHero({
 
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: movie.title,
-          url,
-        });
+        await navigator.share({ title: movie.title, url });
       } else {
         await navigator.clipboard.writeText(url);
         setShared(true);
-
-        setTimeout(() => {
-          setShared(false);
-        }, 2000);
+        window.setTimeout(() => setShared(false), 2000);
       }
-    } catch {}
+    } catch {
+      /* share dismissed */
+    }
   };
+
+  const meta = [
+    year,
+    runtime,
+    movie.genres
+      .slice(0, 3)
+      .map((genre) => genre.name)
+      .join(", "),
+  ].filter(Boolean);
 
   return (
     <section className="relative isolate overflow-hidden">
-      <div className="absolute inset-x-0 top-0 -z-10 h-154 sm:h-175">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[78svh] min-h-[520px] md:h-[88svh] md:max-h-[860px]">
         {movie.backdrop_path ? (
           <img
             src={`https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`}
             alt=""
-            className="h-full w-full object-cover object-top"
+            fetchPriority="high"
+            className="animate-fade h-full w-full object-cover object-top"
           />
         ) : (
-          <div
-            className="h-full w-full"
-            style={{
-              backgroundColor: "var(--card)",
-            }}
-          />
+          <div className="h-full w-full bg-card" />
         )}
 
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to top, var(--background) 4%, transparent 60%), linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 55%, transparent 100%), linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 25%)",
-          }}
-        />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_6%,transparent_62%),linear-gradient(to_right,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0.25)_55%,transparent_100%),linear-gradient(to_bottom,rgba(0,0,0,0.6)_0%,transparent_28%)]" />
       </div>
 
-      <div className="mx-auto max-w-7xl px-6 pb-12 pt-6 lg:px-8">
+      <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-[calc(4.25rem+env(safe-area-inset-top,0px))] sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-md py-1 text-sm font-medium text-white/75 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="inline-flex items-center gap-2 rounded-full bg-black/35 py-1.5 pl-2.5 pr-4 text-sm font-medium text-white backdrop-blur-md transition-transform active:scale-95"
         >
           <ArrowLeft size={16} />
           Back
         </button>
 
-        <div className="mt-24 grid grid-cols-[110px_1fr] items-end gap-5 sm:mt-32 sm:grid-cols-[170px_1fr] sm:gap-8 lg:mt-40 lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-10">
-          <div
-            className="overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10"
-            style={{
-              backgroundColor: "var(--card)",
-            }}
-          >
+        <div className="mt-16 grid grid-cols-[112px_1fr] items-end gap-4 sm:mt-24 sm:grid-cols-[170px_1fr] sm:gap-8 lg:mt-36 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
+          <div className="overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ring-white/15">
             {movie.poster_path ? (
               <img
                 src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
@@ -110,69 +95,55 @@ export default function MovieDetailsHero({
                 className="aspect-2/3 w-full object-cover"
               />
             ) : (
-              <div className="flex aspect-2/3 w-full items-center justify-center p-3 text-center text-xs text-white/50">
+              <div className="grid aspect-2/3 w-full place-items-center p-3 text-center text-xs text-white/50">
                 {movie.title}
               </div>
             )}
           </div>
 
-          <div className="min-w-0">
-            <h1 className="font-display text-3xl font-bold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
+          <div className="animate-rise min-w-0">
+            <h1 className="font-display text-3xl font-extrabold leading-[1.04] tracking-tight text-white text-balance sm:text-5xl lg:text-6xl">
               {movie.title}
             </h1>
 
             {movie.tagline && (
-              <p className="mt-3 text-sm italic text-white/70 sm:text-base">
+              <p className="mt-2 text-sm italic text-white/70 sm:text-base">
                 {movie.tagline}
               </p>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-white/75">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-white">
-                <Star
-                  size={15}
-                  fill="currentColor"
-                  style={{
-                    color: "var(--primary)",
-                  }}
-                />
+            <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
+              {meta.map((item, index) => (
+                <span key={`${item}-${index}`}>{item}</span>
+              ))}
+            </p>
+
+            <p className="mt-3 flex items-center gap-2 text-sm text-white/70">
+              <Star
+                size={18}
+                fill="currentColor"
+                strokeWidth={0}
+                className="text-gold"
+              />
+
+              <span className="text-lg font-bold text-white">
                 {movie.vote_average.toFixed(1)}
               </span>
 
-              {year && <span>{year}</span>}
-
-              {runtime && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock size={14} />
-                  {runtime}
-                </span>
-              )}
+              <span>/ 10</span>
 
               {director && (
-                <span className="hidden sm:inline">
+                <span className="ml-2 hidden border-l border-white/20 pl-3 sm:inline">
                   Directed by{" "}
                   <strong className="font-semibold text-white">
                     {director.name}
                   </strong>
                 </span>
               )}
-            </div>
-
-            {movie.genres.length > 0 && (
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {movie.genres.slice(0, 4).map((genre) => (
-                  <li
-                    key={genre.id}
-                    className="rounded-full border border-white/20 bg-black/30 px-3 py-1 text-xs text-white/80 backdrop-blur"
-                  >
-                    {genre.name}
-                  </li>
-                ))}
-              </ul>
-            )}
+            </p>
           </div>
 
-          <div className="col-span-2 mt-6 lg:col-start-2 lg:col-span-1 lg:mt-0">
+          <div className="col-span-2 mt-2 lg:col-span-1 lg:col-start-2 lg:mt-0">
             {movie.overview && (
               <div className="max-w-2xl">
                 <p
@@ -186,14 +157,9 @@ export default function MovieDetailsHero({
                 {longOverview && (
                   <button
                     type="button"
-                    onClick={() =>
-                      setExpanded((v) => !v)
-                    }
+                    onClick={() => setExpanded((value) => !value)}
                     aria-expanded={expanded}
-                    className="mt-1 text-sm font-semibold transition-opacity hover:opacity-80"
-                    style={{
-                      color: "var(--primary)",
-                    }}
+                    className="mt-1 text-sm font-semibold text-brand"
                   >
                     {expanded ? "Show less" : "Read more"}
                   </button>
@@ -201,40 +167,40 @@ export default function MovieDetailsHero({
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              {trailer && (
-                <a
-                  href="#trailer"
-                  className="inline-flex h-11 items-center gap-2 rounded-md px-6 text-sm font-semibold text-white shadow-lg transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                  }}
-                >
-                  <Play
-                    size={15}
-                    fill="currentColor"
-                  />
-                  Watch trailer
-                </a>
-              )}
-
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
               <WatchlistButton
                 tmdbId={Number(movie.id)}
                 variant="button"
+                className="min-w-0 flex-1 sm:flex-none"
               />
 
-              <FavoriteButton
-                tmdbId={Number(movie.id)}
-                variant="button"
-              />
+              <div className="sm:hidden">
+                <FavoriteButton tmdbId={Number(movie.id)} variant="icon" />
+              </div>
+
+              <div className="hidden sm:block">
+                <FavoriteButton tmdbId={Number(movie.id)} variant="button" />
+              </div>
+
+              {trailer && (
+                <div className="hidden sm:block">
+                  <a href="#trailer" className={cn(ghost, "px-4")}>
+                    <Play size={15} fill="currentColor" strokeWidth={0} />
+                    Watch Trailer
+                  </a>
+                </div>
+              )}
 
               <button
                 type="button"
-                onClick={handleShare}
-                className={ghostButton}
+                onClick={() => void handleShare()}
+                aria-label="Share"
+                className={cn(ghost, "w-11 sm:w-auto sm:px-4")}
               >
                 <Share2 size={16} />
-                {shared ? "Link copied" : "Share"}
+                <span className="hidden sm:inline">
+                  {shared ? "Link copied" : "Share"}
+                </span>
               </button>
             </div>
           </div>

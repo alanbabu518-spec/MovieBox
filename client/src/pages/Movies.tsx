@@ -1,9 +1,22 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowLeft,
+  LayoutGrid,
+  List,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import Navbar from "../shared/components/layout/Navbar";
 import MovieCard from "../shared/components/movie/MovieCard";
+import MovieRow from "../shared/components/movie/MovieRow";
+import Sheet from "../shared/components/ui/Sheet";
+import DiscoverFilters, {
+  GENRES,
+  type DiscoverValues,
+} from "../shared/components/movie/DiscoverFilters";
 
 import {
   getPopularMovies,
@@ -14,11 +27,12 @@ import {
 } from "../shared/services/movie.api";
 
 import type { Movie } from "../shared/types/movie";
+import { cn } from "../shared/lib/cn";
 
 const mapMovies = (
   movies: Awaited<ReturnType<typeof searchMovies>>["movies"],
-): Movie[] => {
-  return movies
+): Movie[] =>
+  movies
     .filter((movie) => movie.poster_path)
     .map((movie) => ({
       id: movie.id,
@@ -34,50 +48,6 @@ const mapMovies = (
       genreIds: movie.genre_ids ?? [],
       genres: movie.genres ?? [],
     }));
-};
-
-const genres = [
-  { id: "28", name: "Action" },
-  { id: "12", name: "Adventure" },
-  { id: "16", name: "Animation" },
-  { id: "35", name: "Comedy" },
-  { id: "80", name: "Crime" },
-  { id: "99", name: "Documentary" },
-  { id: "18", name: "Drama" },
-  { id: "10751", name: "Family" },
-  { id: "14", name: "Fantasy" },
-  { id: "36", name: "History" },
-  { id: "27", name: "Horror" },
-  { id: "10402", name: "Music" },
-  { id: "9648", name: "Mystery" },
-  { id: "10749", name: "Romance" },
-  { id: "878", name: "Science Fiction" },
-  { id: "53", name: "Thriller" },
-  { id: "10752", name: "War" },
-  { id: "37", name: "Western" },
-];
-
-const languages = [
-  { id: "en", name: "English" },
-  { id: "hi", name: "Hindi" },
-  { id: "ta", name: "Tamil" },
-  { id: "te", name: "Telugu" },
-  { id: "ml", name: "Malayalam" },
-  { id: "kn", name: "Kannada" },
-  { id: "ko", name: "Korean" },
-  { id: "ja", name: "Japanese" },
-  { id: "es", name: "Spanish" },
-  { id: "fr", name: "French" },
-  { id: "de", name: "German" },
-  { id: "zh", name: "Chinese" },
-];
-
-const currentYear = new Date().getFullYear();
-
-const years = Array.from(
-  { length: 30 },
-  (_, index) => currentYear - index,
-);
 
 type MovieCategory = "trending" | "upcoming" | "popular";
 
@@ -85,9 +55,22 @@ function isMovieCategory(value: string | null): value is MovieCategory {
   return value === "trending" || value === "upcoming" || value === "popular";
 }
 
+const POPULAR_SEARCHES = [
+  "Dune",
+  "Batman",
+  "Oppenheimer",
+  "Marvel",
+  "Inception",
+  "Interstellar",
+];
+
+const GRID =
+  "grid grid-cols-3 gap-x-2.5 gap-y-5 sm:grid-cols-4 sm:gap-x-4 sm:gap-y-7 lg:grid-cols-4 xl:grid-cols-5";
+
 export default function Movies() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [query, setQuery] = useState("");
+
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -95,10 +78,19 @@ export default function Movies() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
-  const [showFilters, setShowFilters] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<"grid" | "list">("grid");
+
+  /* A search started from the navbar arrives as ?q= */
+  const urlQuery = searchParams.get("q");
+
+  useEffect(() => {
+    if (urlQuery) {
+      setQuery(urlQuery);
+    }
+  }, [urlQuery]);
 
   const categoryParam = searchParams.get("category");
-
   const category: MovieCategory = isMovieCategory(categoryParam)
     ? categoryParam
     : "popular";
@@ -108,9 +100,15 @@ export default function Movies() {
   const year = searchParams.get("year") ?? "";
   const minRating = searchParams.get("rating") ?? "";
 
-  const hasActiveFilters = Boolean(
-    genre || language || year || minRating,
-  );
+  const hasActiveFilters = Boolean(genre || language || year || minRating);
+
+  const values: DiscoverValues = {
+    category,
+    genre,
+    language,
+    year,
+    rating: minRating,
+  };
 
   const updateUrl = (key: string, value: string) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -124,14 +122,16 @@ export default function Movies() {
       nextParams.delete(key);
     }
 
+    // choosing a filter leaves search mode
+    setQuery("");
+    nextParams.delete("q");
+
     setSearchParams(nextParams);
   };
 
   const handleResetFilters = () => {
     const nextParams = new URLSearchParams();
-
     nextParams.set("category", category);
-
     setSearchParams(nextParams);
     setPage(1);
   };
@@ -141,25 +141,17 @@ export default function Movies() {
     nextPage = 1,
   ) => {
     if (category === "trending") {
-      return getTrendingMovies({
-        ...params,
-        page: nextPage,
-      });
+      return getTrendingMovies({ ...params, page: nextPage });
     }
 
     if (category === "upcoming") {
-      return getUpcomingMovies({
-        ...params,
-        page: nextPage,
-      });
+      return getUpcomingMovies({ ...params, page: nextPage });
     }
 
-    return getPopularMovies({
-      ...params,
-      page: nextPage,
-    });
+    return getPopularMovies({ ...params, page: nextPage });
   };
 
+  /* Category + filters */
   useEffect(() => {
     if (query.trim()) {
       return;
@@ -187,9 +179,8 @@ export default function Movies() {
         setPage(result.page);
         setTotalPages(result.totalPages);
         setTotalResults(result.totalResults);
-      } catch (error) {
-        console.error("Movie category loading failed:", error);
-
+      } catch (err) {
+        console.error("Movie category loading failed:", err);
         setError("Unable to load movies right now.");
         setMovies([]);
       } finally {
@@ -197,21 +188,15 @@ export default function Movies() {
       }
     };
 
-    loadMovies();
-  }, [
-    category,
-    genre,
-    language,
-    year,
-    minRating,
-    query,
-    searchParams,
-  ]);
+    void loadMovies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, genre, language, year, minRating, query, searchParams]);
 
+  /* Debounced search */
   useEffect(() => {
-    const trimmedQuery = query.trim();
+    const trimmed = query.trim();
 
-    if (!trimmedQuery) {
+    if (!trimmed) {
       return;
     }
 
@@ -221,15 +206,14 @@ export default function Movies() {
         setError("");
         setHasSearched(true);
 
-        const result = await searchMovies(trimmedQuery, 1);
+        const result = await searchMovies(trimmed, 1);
 
         setMovies(mapMovies(result.movies));
         setPage(result.page);
         setTotalPages(result.totalPages);
         setTotalResults(result.totalResults);
-      } catch (error) {
-        console.error("Movie search failed:", error);
-
+      } catch (err) {
+        console.error("Movie search failed:", err);
         setError("Unable to search movies right now.");
         setMovies([]);
       } finally {
@@ -237,9 +221,7 @@ export default function Movies() {
       }
     }, 500);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, [query]);
 
   const handlePageChange = async (nextPage: number) => {
@@ -275,486 +257,295 @@ export default function Movies() {
         setTotalResults(result.totalResults);
 
         const nextParams = new URLSearchParams(searchParams);
-
         nextParams.set("page", String(result.page));
-
-        setSearchParams(nextParams, {
-          replace: true,
-        });
+        setSearchParams(nextParams, { replace: true });
       }
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error) {
-      console.error("Failed to change page:", error);
-
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("Failed to change page:", err);
       setError("Unable to load this page.");
     } finally {
       setLoading(false);
     }
   };
 
-  const categoryTitle =
-    category === "trending"
+  const searching = Boolean(query.trim());
+
+  const title = searching
+    ? "Search results"
+    : category === "trending"
       ? "Trending Movies"
       : category === "upcoming"
         ? "Upcoming Movies"
         : "Popular Movies";
 
+  const activeCount = [genre, language, year, minRating].filter(Boolean).length;
+
+  const filters = (
+    <DiscoverFilters
+      values={values}
+      onChange={(key, value) => updateUrl(key, value)}
+      onReset={handleResetFilters}
+      hasActive={hasActiveFilters}
+    />
+  );
+
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: "var(--background)",
-        color: "var(--text-primary)",
-      }}
-    >
+    <div className="min-h-screen">
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-6 pb-24 pt-6 sm:pt-8 lg:px-8">
-        <div className="mb-6">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
-            style={{
-              color: "var(--text-secondary)",
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Home</span>
-          </Link>
-        </div>
-
-        <div className="max-w-3xl">
-          <p
-            className="mb-2 text-xs font-semibold uppercase tracking-[0.25em]"
-            style={{
-              color: "var(--primary)",
-            }}
-          >
-            MovieBox
-          </p>
-
-          <h1
-            className="font-display text-4xl font-bold tracking-tight sm:text-5xl"
-            style={{
-              color: "var(--text-primary)",
-            }}
-          >
-            Discover Movies
-          </h1>
-
-          <p
-            className="mt-4 max-w-2xl text-sm leading-7 sm:text-base"
-            style={{
-              color: "var(--text-secondary)",
-            }}
-          >
-            Search thousands of movies and discover your next favorite.
-          </p>
-        </div>
-
-        <div className="mt-10 flex gap-3">
+      <main>
+        {/* Banner */}
+        <section className="relative isolate overflow-hidden border-b border-line">
           <div
-            className="flex h-12 flex-1 items-center gap-3 rounded-lg border px-4"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-            }}
-          >
-            <Search
-              size={19}
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            />
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-[radial-gradient(40rem_18rem_at_85%_0%,var(--glow),transparent_70%),linear-gradient(180deg,var(--surface),transparent)]"
+          />
 
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-              }}
-              placeholder="Search movies..."
-              className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none"
-              style={{
-                color: "var(--text-primary)",
-              }}
-            />
+          <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-6 sm:px-6 sm:pb-9 sm:pt-9 lg:px-8">
+            <Link
+              to="/"
+              className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-ink md:hidden"
+            >
+              <ArrowLeft size={16} />
+              Home
+            </Link>
 
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-                style={{
-                  color: "var(--text-secondary)",
-                }}
-              >
-                <X size={17} />
-              </button>
-            )}
-          </div>
+            <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-5xl">
+              Discover <span className="text-muted">Incredible Stories</span>
+            </h1>
 
-          <button
-            type="button"
-            onClick={() => setShowFilters((value) => !value)}
-            className="flex h-12 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: showFilters
-                ? "var(--primary)"
-                : "var(--surface)",
-              borderColor: showFilters
-                ? "var(--primary)"
-                : "var(--border)",
-              color: showFilters
-                ? "#ffffff"
-                : "var(--text-primary)",
-            }}
-          >
-            <SlidersHorizontal size={18} />
-            <span className="hidden sm:inline">Filters</span>
-          </button>
-        </div>
+            <p className="mt-2 max-w-xl text-sm text-muted sm:text-base">
+              Search thousands of movies and find exactly what you feel like
+              watching.
+            </p>
 
-        {showFilters && (
-          <div
-            className="mt-4 rounded-xl border p-5 sm:p-6"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-            }}
-          >
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
+            <div className="mt-5 flex max-w-3xl items-center gap-2 rounded-2xl border border-line bg-surface p-1.5 pl-4 focus-within:border-brand/70">
+              <Search size={18} className="shrink-0 text-muted" />
+
+              <input
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoCapitalize="none"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search movies…"
+                aria-label="Search movies"
+                className="h-10 min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
+              />
+
+              {query && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setQuery("")}
+                  className="grid h-9 w-9 place-items-center rounded-full text-muted active:scale-90"
                 >
-                  Genre
-                </label>
+                  <X size={17} />
+                </button>
+              )}
 
-                <select
-                  value={genre}
-                  onChange={(event) =>
-                    updateUrl("genre", event.target.value)
-                  }
-                  className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--text-primary)",
-                    backgroundColor: "var(--card)",
-                  }}
-                >
-                  <option value="">All Genres</option>
-
-                  {genres.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Language
-                </label>
-
-                <select
-                  value={language}
-                  onChange={(event) =>
-                    updateUrl("language", event.target.value)
-                  }
-                  className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--text-primary)",
-                    backgroundColor: "var(--card)",
-                  }}
-                >
-                  <option value="">All Languages</option>
-
-                  {languages.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Release Year
-                </label>
-
-                <select
-                  value={year}
-                  onChange={(event) =>
-                    updateUrl("year", event.target.value)
-                  }
-                  className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--text-primary)",
-                    backgroundColor: "var(--card)",
-                  }}
-                >
-                  <option value="">All Years</option>
-
-                  {years.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Minimum Rating
-                </label>
-
-                <select
-                  value={minRating}
-                  onChange={(event) =>
-                    updateUrl("rating", event.target.value)
-                  }
-                  className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm outline-none"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--text-primary)",
-                    backgroundColor: "var(--card)",
-                  }}
-                >
-                  <option value="">Any Rating</option>
-                  <option value="9">9+</option>
-                  <option value="8">8+</option>
-                  <option value="7">7+</option>
-                  <option value="6">6+</option>
-                  <option value="5">5+</option>
-                </select>
-              </div>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-white sm:w-12">
+                <Search size={18} />
+              </span>
             </div>
 
-            <div className="mt-6 flex justify-end border-t pt-5">
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="h-10 rounded-lg border px-5 text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Reset Filters
-              </button>
+            <div className="scrollbar-none -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <span className="shrink-0 self-center text-xs text-muted">
+                Popular searches
+              </span>
+
+              {POPULAR_SEARCHES.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => setQuery(term)}
+                  className="shrink-0 rounded-full border border-line bg-white/5 px-3 py-1.5 text-xs font-medium text-muted transition-[transform,color] duration-150 hover:text-ink active:scale-95"
+                >
+                  {term}
+                </button>
+              ))}
             </div>
           </div>
-        )}
+        </section>
 
-        {hasSearched && (
-          <div className="mt-10">
-            <div className="mb-8 flex items-end justify-between gap-4">
-              <div>
-                <h2
-                  className="font-display text-2xl font-bold"
-                  style={{
-                    color: "var(--text-primary)",
-                  }}
+        <div className="mx-auto grid max-w-[1400px] gap-8 px-4 pb-10 pt-6 sm:px-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:px-8">
+          {/* Desktop filters */}
+          <aside className="hidden lg:block">
+            <div className="scrollbar-none sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-5">
+              {filters}
+            </div>
+          </aside>
+
+          <section aria-live="polite" className="min-w-0">
+            {/* Mobile: genre chips */}
+            <div className="scrollbar-none -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:hidden">
+              {[{ id: "", name: "All" }, ...GENRES].map((item) => (
+                <button
+                  key={item.id || "all"}
+                  type="button"
+                  aria-pressed={genre === item.id}
+                  onClick={() => updateUrl("genre", item.id)}
+                  className={cn(
+                    "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-[transform,background-color] duration-150 active:scale-95",
+                    genre === item.id
+                      ? "border-brand bg-brand text-white"
+                      : "border-line bg-white/5 text-muted",
+                  )}
                 >
-                  {query.trim() ? "Search Results" : categoryTitle}
+                  {item.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate font-display text-xl font-bold sm:text-2xl">
+                  {title}
                 </h2>
 
                 {!loading && totalResults > 0 && (
-                  <p
-                    className="mt-1 text-sm"
-                    style={{
-                      color: "var(--text-secondary)",
-                    }}
-                  >
+                  <p className="mt-0.5 text-sm text-muted">
                     {totalResults.toLocaleString()}{" "}
-                    {query.trim()
-                      ? `results for "${query}"`
-                      : "movies found"}
+                    {searching ? `results for “${query.trim()}”` : "movies"}
                   </p>
                 )}
               </div>
 
-              {hasActiveFilters && !query.trim() && (
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleResetFilters}
-                  className="text-xs font-medium"
-                  style={{
-                    color: "var(--primary)",
-                  }}
+                  onClick={() => setSheetOpen(true)}
+                  className="relative flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-medium active:scale-95 lg:hidden"
                 >
-                  Clear filters
+                  <SlidersHorizontal size={16} />
+                  Filters
+                  {activeCount > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] font-bold text-white">
+                      {activeCount}
+                    </span>
+                  )}
                 </button>
-              )}
+
+                <div
+                  role="group"
+                  aria-label="View"
+                  className="flex rounded-xl border border-line bg-surface p-1"
+                >
+                  {(
+                    [
+                      ["grid", LayoutGrid, "Grid view"],
+                      ["list", List, "List view"],
+                    ] as const
+                  ).map(([mode, Icon, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-label={label}
+                      aria-pressed={view === mode}
+                      onClick={() => setView(mode)}
+                      className={cn(
+                        "grid h-8 w-8 place-items-center rounded-lg transition-colors duration-150",
+                        view === mode
+                          ? "bg-brand text-white"
+                          : "text-muted hover:text-ink",
+                      )}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {error ? (
-              <div
-                className="rounded-xl border p-10 text-center"
-                style={{
-                  backgroundColor: "var(--card)",
-                  borderColor: "var(--border)",
-                }}
-              >
-                <p
-                  className="text-sm"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  {error}
-                </p>
+              <div className="rounded-2xl border border-line bg-card p-10 text-center text-sm text-muted">
+                {error}
               </div>
-            ) : loading ? (
-              <MovieSearchSkeleton />
+            ) : loading || !hasSearched ? (
+              <div className={GRID}>
+                {Array.from({ length: 12 }).map((_, index) => (
+                  <div key={index}>
+                    <div className="skeleton aspect-2/3 rounded-xl" />
+                  </div>
+                ))}
+              </div>
             ) : movies.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 md:gap-x-5 md:gap-y-10 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10 xl:grid-cols-6 xl:gap-x-6">
-                  {movies.map((movie) => (
-                    <div key={movie.id} className="min-w-0">
-                      <MovieCard movie={movie} />
-                    </div>
-                  ))}
-                </div>
+                {view === "grid" ? (
+                  <ul role="list" className={GRID}>
+                    {movies.map((movie, index) => (
+                      <li key={movie.id} className="min-w-0">
+                        <MovieCard movie={movie} priority={index < 6} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul role="list" className="grid gap-3 xl:grid-cols-2">
+                    {movies.map((movie) => (
+                      <MovieRow key={movie.id} movie={movie} />
+                    ))}
+                  </ul>
+                )}
 
                 {totalPages > 1 && (
-                  <div className="mt-14 flex items-center justify-center gap-3">
+                  <nav
+                    aria-label="Pagination"
+                    className="mt-10 flex items-center justify-center gap-3"
+                  >
                     <button
                       type="button"
                       disabled={page === 1 || loading}
-                      onClick={() => handlePageChange(page - 1)}
-                      className="rounded-lg border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--text-primary)",
-                      }}
+                      onClick={() => void handlePageChange(page - 1)}
+                      className="h-10 rounded-xl border border-line bg-surface px-5 text-sm font-medium transition-transform active:scale-95 disabled:opacity-40"
                     >
                       Previous
                     </button>
 
-                    <span
-                      className="px-3 text-sm"
-                      style={{
-                        color: "var(--text-secondary)",
-                      }}
-                    >
+                    <span className="px-2 text-sm text-muted">
                       {page} / {totalPages}
                     </span>
 
                     <button
                       type="button"
                       disabled={page === totalPages || loading}
-                      onClick={() => handlePageChange(page + 1)}
-                      className="rounded-lg border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
-                      style={{
-                        borderColor: "var(--border)",
-                        color: "var(--text-primary)",
-                      }}
+                      onClick={() => void handlePageChange(page + 1)}
+                      className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition-transform active:scale-95 disabled:opacity-40"
                     >
                       Next
                     </button>
-                  </div>
+                  </nav>
                 )}
               </>
             ) : (
-              <div
-                className="rounded-xl border p-12 text-center"
-                style={{
-                  backgroundColor: "var(--card)",
-                  borderColor: "var(--border)",
-                }}
-              >
-                <p
-                  className="text-sm"
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  {query.trim()
-                    ? `No movies found for "${query}".`
-                    : "No movies found with these filters."}
-                </p>
+              <div className="rounded-2xl border border-line bg-card p-12 text-center text-sm text-muted">
+                {searching
+                  ? `No movies found for “${query.trim()}”.`
+                  : "No movies match these filters."}
               </div>
             )}
-          </div>
-        )}
-
-        {!hasSearched && (
-          <div
-            className="mt-16 border-t pt-12"
-            style={{
-              borderColor: "var(--border)",
-            }}
-          >
-            <p
-              className="text-sm"
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            >
-              Start typing to search for movies or use filters to discover
-              movies.
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-function MovieSearchSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-9 md:grid-cols-4 md:gap-x-5 md:gap-y-10 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10 xl:grid-cols-6 xl:gap-x-6">
-      {Array.from({ length: 12 }).map((_, index) => (
-        <div key={index} className="min-w-0">
-          <div
-            className="aspect-2/3 animate-pulse rounded-lg"
-            style={{
-              backgroundColor: "var(--card)",
-            }}
-          />
-
-          <div
-            className="mt-2 h-4 w-3/4 animate-pulse rounded"
-            style={{
-              backgroundColor: "var(--card)",
-            }}
-          />
-
-          <div
-            className="mt-1.5 h-3 w-1/2 animate-pulse rounded"
-            style={{
-              backgroundColor: "var(--card)",
-            }}
-          />
+          </section>
         </div>
-      ))}
+      </main>
+
+      <Sheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Filters"
+        footer={
+          <button
+            type="button"
+            onClick={() => setSheetOpen(false)}
+            className="h-12 w-full rounded-xl bg-brand text-base font-semibold text-white active:scale-[0.98]"
+          >
+            Show {totalResults ? totalResults.toLocaleString() : ""} results
+          </button>
+        }
+      >
+        {filters}
+      </Sheet>
     </div>
   );
 }

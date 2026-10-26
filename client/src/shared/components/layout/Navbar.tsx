@@ -1,22 +1,21 @@
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import {
   Bookmark,
-  ChevronDown,
-  Clock3,
-  Film,
+  Compass,
   Heart,
-  History,
-  Menu,
+  House,
   Moon,
   Search,
-  Sparkles,
-  Star,
   Sun,
-  TrendingUp,
+  User,
   X,
 } from "lucide-react";
-
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 
 import {
   Avatar,
@@ -24,341 +23,134 @@ import {
   AvatarImage,
 } from "../../components/ui/avatar";
 
-import { useAuth } from "../../../shared/context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useThemeStore } from "../../../store/theme.store";
+import { cn } from "../../lib/cn";
 
-type DropdownItem = {
+interface NavbarProps {
+  /** Transparent over a full-bleed hero until the page scrolls */
+  overlay?: boolean;
+}
+
+interface NavItem {
   label: string;
-  description: string;
-  icon: typeof Star;
-  href: string;
-  requiresAuth?: boolean;
-};
-
-type DropdownSection = {
-  title: string;
-  items: DropdownItem[];
-};
-
-const movieSections: DropdownSection[] = [
-  {
-    title: "Explore Movies",
-    items: [
-      {
-        label: "Popular",
-        description: "Movies everyone is watching",
-        icon: Star,
-        href: "/movies",
-        requiresAuth: true,
-      },
-      {
-        label: "Trending",
-        description: "What's hot right now",
-        icon: TrendingUp,
-        href: "/movies",
-        requiresAuth: true,
-      },
-      {
-        label: "Upcoming",
-        description: "Movies coming soon",
-        icon: Clock3,
-        href: "/movies",
-        requiresAuth: true,
-      },
-      {
-        label: "New Releases",
-        description: "Recently released movies",
-        icon: Film,
-        href: "/movies",
-        requiresAuth: true,
-      },
-    ],
-  },
-];
-
-const discoverSections: DropdownSection[] = [
-  {
-    title: "Discover",
-    items: [
-      {
-        label: "Search Movies",
-        description: "Find your next movie",
-        icon: Search,
-        href: "/movies",
-        requiresAuth: true,
-      },
-      {
-        label: "Genres",
-        description: "Browse movies by genre",
-        icon: Sparkles,
-        href: "/movies",
-        requiresAuth: true,
-      },
-      {
-        label: "Top Rated",
-        description: "Highly rated movies",
-        icon: Star,
-        href: "/movies",
-        requiresAuth: true,
-      },
-    ],
-  },
-];
-
-const collectionSections: DropdownSection[] = [
-  {
-    title: "Your Collection",
-    items: [
-      {
-        label: "Watchlist",
-        description: "Movies you want to watch",
-        icon: Bookmark,
-        href: "/watchlist",
-        requiresAuth: true,
-      },
-      {
-        label: "Favorites",
-        description: "Your favorite movies",
-        icon: Heart,
-        href: "/favorites",
-        requiresAuth: true,
-      },
-      {
-        label: "History",
-        description: "Recently watched movies",
-        icon: History,
-        href: "/profile",
-        requiresAuth: true,
-      },
-    ],
-  },
-];
-
-const aiSections: DropdownSection[] = [
-  {
-    title: "Movie AI",
-    items: [
-      {
-        label: "AI Assistant",
-        description: "Ask anything about movies",
-        icon: Sparkles,
-        href: "/ai",
-        requiresAuth: true,
-      },
-      {
-        label: "AI Recommendations",
-        description: "Get personalized movie ideas",
-        icon: Star,
-        href: "/ai",
-        requiresAuth: true,
-      },
-      {
-        label: "AI Search",
-        description: "Describe the movie you want",
-        icon: Search,
-        href: "/ai",
-        requiresAuth: true,
-      },
-    ],
-  },
-];
-
-function DropdownMenu({
-  sections,
-  open,
-  onNavigate,
-}: {
-  sections: DropdownSection[];
-  open: boolean;
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-}) {
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div className="absolute left-0 top-full pt-2">
-      <div
-        className="w-max min-w-70 rounded-2xl border p-3 shadow-2xl"
-        style={{
-          backgroundColor: "var(--background)",
-          borderColor: "var(--border)",
-        }}
-      >
-        <div className="flex gap-6">
-          {sections.map((section) => (
-            <div key={section.title} className="min-w-70">
-              <p
-                className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.15em]"
-                style={{
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {section.title}
-              </p>
-
-              <div className="space-y-1">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => onNavigate(item.href, item.requiresAuth)}
-                      className="group flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-                    >
-                      <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 group-hover:scale-105"
-                        style={{
-                          borderColor: "var(--border)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        <Icon size={17} strokeWidth={1.8} />
-                      </div>
-
-                      <div className="min-w-0">
-                        <p
-                          className="text-sm font-medium"
-                          style={{
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {item.label}
-                        </p>
-
-                        <p
-                          className="mt-0.5 text-xs"
-                          style={{
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          {item.description}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  to: string;
+  category?: string;
+  auth?: boolean;
+  dot?: boolean;
 }
 
-function MobileDropdownItems({
-  sections,
-  onNavigate,
-}: {
-  sections: DropdownSection[];
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-}) {
-  return (
-    <div className="mb-1 ml-3 border-l pl-3">
-      {sections.flatMap((section) =>
-        section.items.map((item) => {
-          const Icon = item.icon;
+const NAV_ITEMS: NavItem[] = [
+  { label: "Home", to: "/" },
+  { label: "Movies", to: "/movies?category=popular", category: "popular", auth: true },
+  { label: "Trending", to: "/movies?category=trending", category: "trending", auth: true },
+  { label: "Upcoming", to: "/movies?category=upcoming", category: "upcoming", auth: true },
+  { label: "AI Search", to: "/ai/search", auth: true, dot: true },
+];
 
-          return (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => onNavigate(item.href, item.requiresAuth)}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            >
-              <Icon size={15} />
-              {item.label}
-            </button>
-          );
-        }),
-      )}
-    </div>
-  );
-}
+const TAB_ITEMS = [
+  { label: "Home", to: "/", icon: House, auth: false },
+  { label: "Discover", to: "/movies", icon: Compass, auth: true },
+  { label: "Favorites", to: "/favorites", icon: Heart, auth: true },
+  { label: "Watchlist", to: "/watchlist", icon: Bookmark, auth: true },
+  { label: "Profile", to: "/profile", icon: User, auth: true },
+] as const;
 
-export default function Navbar() {
+export default function Navbar({ overlay = false }: NavbarProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
 
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const [mobileMovieOpen, setMobileMovieOpen] = useState(false);
-
-  const [mobileDiscoverOpen, setMobileDiscoverOpen] = useState(false);
-
-  const [mobileCollectionOpen, setMobileCollectionOpen] = useState(false);
-
-  const [mobileAIOpen, setMobileAIOpen] = useState(false);
-
-  const [isThemeAnimating, setIsThemeAnimating] = useState(false);
-
-  const [themeReveal, setThemeReveal] = useState(false);
-
-  const { user, loading, logout } = useAuth();
-
+  const { user, loading } = useAuth();
   const theme = useThemeStore((state) => state.theme);
-
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
-  const closeMenus = () => {
-    setOpenMenu(null);
-    setMobileOpen(false);
-    setMobileMovieOpen(false);
-    setMobileDiscoverOpen(false);
-    setMobileCollectionOpen(false);
-    setMobileAIOpen(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  /* Solid header once the page leaves the top: IntersectionObserver, no scroll listener */
+  useEffect(() => {
+    const node = sentinel.current;
+
+    if (!node) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) =>
+      setScrolled(!entry.isIntersecting),
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  /* Tell the stylesheet to leave room for the tab bar */
+  useEffect(() => {
+    document.documentElement.classList.add("has-bottom-nav");
+
+    return () =>
+      document.documentElement.classList.remove("has-bottom-nav");
+  }, []);
+
+  const solid = scrolled || !overlay;
+
+  const gate = (
+    event: React.MouseEvent,
+    auth: boolean | undefined,
+  ) => {
+    if (!auth) {
+      return;
+    }
+
+    if (loading) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!user) {
+      event.preventDefault();
+      navigate("/signin");
+    }
   };
 
-  const handleNavigation = (href: string, requiresAuth = false) => {
-    closeMenus();
+  const isActive = (item: NavItem) => {
+    if (item.to === "/") {
+      return pathname === "/";
+    }
 
-    if (requiresAuth && !user) {
+    if (item.category) {
+      return (
+        pathname === "/movies" &&
+        (params.get("category") ?? "popular") === item.category
+      );
+    }
+
+    return pathname.startsWith(item.to);
+  };
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+
+    const value = query.trim();
+
+    if (!value || loading) {
+      return;
+    }
+
+    if (!user) {
       navigate("/signin");
       return;
     }
 
-    navigate(href);
-  };
-
-  const handleThemeToggle = () => {
-    if (isThemeAnimating) {
-      return;
-    }
-
-    setIsThemeAnimating(true);
-    setThemeReveal(true);
-
-    window.setTimeout(() => {
-      toggleTheme();
-    }, 250);
-
-    window.setTimeout(() => {
-      setThemeReveal(false);
-    }, 800);
-
-    window.setTimeout(() => {
-      setIsThemeAnimating(false);
-    }, 900);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      closeMenus();
-    } catch {
-      return;
-    }
+    setMobileSearch(false);
+    navigate(`/movies?category=popular&q=${encodeURIComponent(value)}`);
   };
 
   const avatarId = user?.avatar || "avatar-1";
-
   const avatarNumber = Number(avatarId.replace("avatar-", ""));
 
   const avatarSrc =
@@ -369,396 +161,136 @@ export default function Navbar() {
       ? null
       : `/avatars/avatar${avatarNumber - 1}.svg`;
 
-  const avatarFallback = user?.name?.trim().charAt(0).toUpperCase() || "U";
+  const avatarFallback =
+    user?.name?.trim().charAt(0).toUpperCase() || "U";
+
+  const iconButton =
+    "h-10 w-10 place-items-center rounded-full text-muted transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-white/10 hover:text-ink";
+
+  const profileLink = (
+    <Link to="/profile" aria-label="Profile" className="ml-1 shrink-0">
+      <Avatar className="h-8 w-8 ring-1 ring-line">
+        {avatarSrc && <AvatarImage src={avatarSrc} alt={user?.name ?? ""} />}
+        <AvatarFallback className="bg-brand text-sm font-semibold text-white">
+          {avatarFallback}
+        </AvatarFallback>
+      </Avatar>
+    </Link>
+  );
 
   return (
     <>
       <div
-        className={`pointer-events-none fixed inset-0 z-40 overflow-hidden ${
-          themeReveal ? "opacity-100" : "opacity-0"
-        }`}
+        ref={sentinel}
         aria-hidden="true"
-      >
+        className="pointer-events-none absolute inset-x-0 top-0 h-12"
+      />
+
+      <header className="pt-safe fixed inset-x-0 top-0 z-50 isolate">
+        {/* gradient scrim (always) + solid glass layer that fades in on scroll */}
+        {overlay && (
+          <div className="absolute inset-0 -z-20 bg-linear-to-b from-black/70 to-transparent" />
+        )}
+
         <div
-          className={`absolute inset-0 origin-center transition-transform duration-800 ease-[cubic-bezier(0.76,0,0.24,1)] ${
-            themeReveal ? "scale-100" : "scale-0"
-          }`}
-          style={{
-            backgroundColor: "var(--background)",
-          }}
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-0 -z-10 border-b border-line bg-canvas/85 backdrop-blur-xl transition-opacity duration-300",
+            solid ? "opacity-100" : "opacity-0",
+          )}
         />
-      </div>
 
-      <header
-        className="fixed inset-x-0 top-0 z-50 border-b backdrop-blur-xl"
-        style={{
-          backgroundColor:
-            "color-mix(in srgb, var(--background) 90%, transparent)",
-          borderColor: "var(--border)",
-        }}
-      >
         <nav
-          className="
-            mx-auto
-            flex
-            h-14
-            max-w-7xl
-            items-center
-            justify-between
-            px-4
-            sm:px-6
-            lg:px-8
-          "
+          aria-label="Main"
+          className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:px-8"
         >
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((open) => !open)}
-              className="
-                -ml-2
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-full
-                transition-colors
-                hover:bg-black/5
-                dark:hover:bg-white/10
-                md:hidden
-              "
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            >
-              {mobileOpen ? (
-                <X size={20} strokeWidth={1.8} />
-              ) : (
-                <Menu size={20} strokeWidth={1.8} />
-              )}
-            </button>
-
-            <Link
-              to="/"
-              onClick={closeMenus}
-              className="group flex shrink-0 items-center gap-2"
-            >
-              <div
-                className="
-                  flex
-                  h-8
-                  w-8
-                  items-center
-                  justify-center
-                  rounded-lg
-                  transition-transform
-                  duration-200
-                  group-hover:scale-105
-                "
-                style={{
-                  backgroundColor: "var(--primary)",
-                }}
-              >
-                <span className="font-display text-base font-bold text-white">
-                  M
-                </span>
-              </div>
-
-              <span
-                className="
-                  font-display
-                  text-lg
-                  font-bold
-                  tracking-tight
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                MOVIE
-                <span
-                  style={{
-                    color: "var(--primary)",
-                  }}
-                >
-                  BOX
-                </span>
-              </span>
-            </Link>
-          </div>
-
-          <div
-            className="
-              hidden
-              h-full
-              items-center
-              md:flex
-            "
+          <Link
+            to="/"
+            aria-label="MovieBox home"
+            className="shrink-0 font-display text-xl font-extrabold tracking-tight text-white"
           >
-            <Link
-              to="/"
-              className="
-                flex
-                h-full
-                items-center
-                px-3
-                text-sm
-                font-medium
-                transition-colors
-                hover:text-(--primary)]
-              "
-              style={{
-                color: "var(--text-primary)",
-              }}
-            >
-              Home
-            </Link>
+            Movie<span className="text-brand">Box</span>
+          </Link>
 
-            <div
-              className="relative h-full"
-              onMouseEnter={() => setOpenMenu("movies")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className="
-                  group
-                  flex
-                  h-full
-                  items-center
-                  gap-1
-                  px-3
-                  text-sm
-                  font-medium
-                "
-                style={{
-                  color:
-                    openMenu === "movies"
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                }}
-              >
-                Movies
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${
-                    openMenu === "movies" ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+          {/* Desktop links */}
+          <ul className="ml-2 hidden h-full items-stretch md:flex">
+            {NAV_ITEMS.map((item) => {
+              const active = isActive(item);
 
-              <DropdownMenu
-                sections={movieSections}
-                open={openMenu === "movies"}
-                onNavigate={handleNavigation}
+              return (
+                <li key={item.label} className="flex">
+                  <Link
+                    to={item.to}
+                    onClick={(event) => gate(event, item.auth)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex items-center gap-1.5 px-3.5 text-sm font-medium transition-colors duration-150 hover:text-white",
+                      active ? "text-white" : "text-white/65",
+                    )}
+                  >
+                    {item.dot && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                    )}
+
+                    {item.label}
+
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute inset-x-3.5 bottom-0 h-0.5 origin-left rounded-full bg-brand transition-transform duration-300 ease-out",
+                        active ? "scale-x-100" : "scale-x-0",
+                      )}
+                    />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="ml-auto flex items-center gap-1">
+            {/* Desktop search */}
+            <form
+              role="search"
+              onSubmit={submitSearch}
+              className="relative mr-2 hidden md:block"
+            >
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
               />
-            </div>
-
-            <div
-              className="relative h-full"
-              onMouseEnter={() => setOpenMenu("discover")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className="
-                  group
-                  flex
-                  h-full
-                  items-center
-                  gap-1
-                  px-3
-                  text-sm
-                  font-medium
-                "
-                style={{
-                  color:
-                    openMenu === "discover"
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                }}
-              >
-                Discover
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${
-                    openMenu === "discover" ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              <DropdownMenu
-                sections={discoverSections}
-                open={openMenu === "discover"}
-                onNavigate={handleNavigation}
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search movies…"
+                enterKeyHint="search"
+                aria-label="Search movies"
+                className="h-10 w-56 rounded-full border border-line bg-white/6 pl-10 pr-4 text-sm text-ink outline-none transition-[width,border-color] duration-300 placeholder:text-muted focus:w-72 focus:border-brand/60 lg:w-64 lg:focus:w-80"
               />
-            </div>
+            </form>
 
-            <div
-              className="relative h-full"
-              onMouseEnter={() => setOpenMenu("collections")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className="
-                  group
-                  flex
-                  h-full
-                  items-center
-                  gap-1
-                  px-3
-                  text-sm
-                  font-medium
-                "
-                style={{
-                  color:
-                    openMenu === "collections"
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                }}
-              >
-                Collections
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${
-                    openMenu === "collections" ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              <DropdownMenu
-                sections={collectionSections}
-                open={openMenu === "collections"}
-                onNavigate={handleNavigation}
-              />
-            </div>
-
-            <div
-              className="relative h-full"
-              onMouseEnter={() => setOpenMenu("ai")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className="
-                  flex
-                  h-full
-                  items-center
-                  gap-1.5
-                  px-3
-                  text-sm
-                  font-medium
-                "
-                style={{
-                  color:
-                    openMenu === "ai"
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                  }}
-                />
-                AI
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${
-                    openMenu === "ai" ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              <DropdownMenu
-                sections={aiSections}
-                open={openMenu === "ai"}
-                onNavigate={handleNavigation}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-0.5">
+            {/* Mobile search toggle */}
             <button
               type="button"
-              aria-label="Search movies"
-              onClick={() => handleNavigation("/movies", true)}
-              className="
-                hidden
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-full
-                transition-all
-                duration-200
-                hover:scale-105
-                hover:bg-black/5
-                dark:hover:bg-white/10
-                md:flex
-              "
-              style={{
-                color: "var(--text-secondary)",
-              }}
+              aria-label={mobileSearch ? "Close search" : "Search"}
+              aria-expanded={mobileSearch}
+              onClick={() => setMobileSearch((open) => !open)}
+              className={cn(iconButton, "grid md:hidden")}
             >
-              <Search size={18} strokeWidth={1.8} />
+              {mobileSearch ? <X size={19} /> : <Search size={19} />}
             </button>
 
             <button
               type="button"
-              onClick={handleThemeToggle}
-              disabled={isThemeAnimating}
+              onClick={toggleTheme}
               aria-label={
                 theme === "dark"
                   ? "Switch to light mode"
                   : "Switch to dark mode"
               }
-              aria-pressed={theme === "dark"}
-              className="
-                relative
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                overflow-hidden
-                rounded-full
-                transition-transform
-                duration-200
-                hover:scale-110
-                hover:bg-black/5
-                dark:hover:bg-white/10
-              "
-              style={{
-                color: "var(--text-secondary)",
-              }}
+              className={cn(iconButton, "grid")}
             >
-              <span
-                className={`absolute inset-0 rounded-full transition-transform duration-500 ${
-                  isThemeAnimating ? "scale-100" : "scale-0"
-                }`}
-                style={{
-                  backgroundColor: "var(--primary)",
-                }}
-              />
-
-              <span
-                className={`relative z-10 transition-all duration-300 ${
-                  isThemeAnimating
-                    ? "rotate-180 scale-75 text-white"
-                    : "rotate-0 scale-100"
-                }`}
-              >
-                {theme === "dark" ? (
-                  <Sun size={18} strokeWidth={1.8} />
-                ) : (
-                  <Moon size={18} strokeWidth={1.8} />
-                )}
-              </span>
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {!loading && user && (
@@ -766,421 +298,103 @@ export default function Navbar() {
                 <Link
                   to="/favorites"
                   aria-label="Favorites"
-                  className="
-                    hidden
-                    h-9
-                    w-9
-                    items-center
-                    justify-center
-                    rounded-full
-                    transition-colors
-                    hover:bg-black/5
-                    dark:hover:bg-white/10
-                    sm:flex
-                  "
-                  style={{
-                    color: "var(--text-secondary)",
-                  }}
+                  className={cn(iconButton, "hidden md:grid")}
                 >
-                  <Heart size={18} strokeWidth={1.8} />
+                  <Heart size={18} />
                 </Link>
 
-                <Link
-                  to="/profile"
-                  aria-label="Profile"
-                  className="
-                    ml-1
-                    hidden
-                    sm:flex
-                  "
-                >
-                  <Avatar
-                    className="
-                      h-8
-                      w-8
-                      transition-opacity
-                      hover:opacity-90
-                    "
-                  >
-                    {avatarSrc && (
-                      <AvatarImage src={avatarSrc} alt={user.name} />
-                    )}
-
-                    <AvatarFallback
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "white",
-                      }}
-                    >
-                      {avatarFallback}
-                    </AvatarFallback>
-                  </Avatar>
-                </Link>
+                {profileLink}
               </>
             )}
 
             {!loading && !user && (
               <Link
                 to="/signin"
-                className="
-                  ml-1
-                  hidden
-                  rounded-md
-                  px-3.5
-                  py-1.5
-                  text-sm
-                  font-semibold
-                  text-white
-                  transition-opacity
-                  hover:opacity-90
-                  sm:block
-                "
-                style={{
-                  backgroundColor: "var(--primary)",
-                }}
+                className="ml-1 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-[transform,background-color] duration-150 hover:bg-brand-hover active:scale-95"
               >
-                Get Started
-              </Link>
-            )}
-
-            {!loading && !user && (
-              <Link
-                to="/signin"
-                onClick={closeMenus}
-                className="
-                  ml-1
-                  flex
-                  items-center
-                  rounded-lg
-                  px-3
-                  py-1.5
-                  text-xs
-                  font-semibold
-                  text-white
-                  transition-all
-                  duration-200
-                  hover:opacity-90
-                  active:scale-95
-                  md:hidden
-                "
-                style={{
-                  backgroundColor: "var(--primary)",
-                }}
-              >
-                Get Started
-              </Link>
-            )}
-
-            {!loading && user && (
-              <Link
-                to="/profile"
-                aria-label="Profile"
-                className="
-                  ml-1
-                  flex
-                  md:hidden
-                "
-              >
-                <Avatar
-                  className="
-                    h-8
-                    w-8
-                    transition-opacity
-                    hover:opacity-90
-                  "
-                >
-                  {avatarSrc && <AvatarImage src={avatarSrc} alt={user.name} />}
-
-                  <AvatarFallback
-                    style={{
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                    }}
-                  >
-                    {avatarFallback}
-                  </AvatarFallback>
-                </Avatar>
+                Sign in
               </Link>
             )}
           </div>
         </nav>
 
-        {mobileOpen && (
-          <div
-            className="
-              max-h-[calc(100vh-3.5rem)]
-              overflow-y-auto
-              border-t
-              md:hidden
-            "
-            style={{
-              backgroundColor: "var(--background)",
-              borderColor: "var(--border)",
-            }}
+        {mobileSearch && (
+          <form
+            role="search"
+            onSubmit={submitSearch}
+            className="animate-fade mx-auto max-w-[1400px] px-4 pb-3 md:hidden"
           >
-            <div
-              className="
-                mx-auto
-                max-w-7xl
-                px-4
-                py-3
-                sm:px-6
-              "
-            >
-              <Link
-                to="/"
-                onClick={closeMenus}
-                className="
-                  block
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                Home
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => setMobileMovieOpen((open) => !open)}
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                Movies
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${
-                    mobileMovieOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {mobileMovieOpen && (
-                <MobileDropdownItems
-                  sections={movieSections}
-                  onNavigate={handleNavigation}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() => setMobileDiscoverOpen((open) => !open)}
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                Discover
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${
-                    mobileDiscoverOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {mobileDiscoverOpen && (
-                <MobileDropdownItems
-                  sections={discoverSections}
-                  onNavigate={handleNavigation}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() => setMobileCollectionOpen((open) => !open)}
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                Collections
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${
-                    mobileCollectionOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {mobileCollectionOpen && (
-                <MobileDropdownItems
-                  sections={collectionSections}
-                  onNavigate={handleNavigation}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() => setMobileAIOpen((open) => !open)}
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-between
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                <span className="flex items-center gap-2">
-                  <Sparkles size={16} />
-                  AI
-                </span>
-
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${
-                    mobileAIOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {mobileAIOpen && (
-                <MobileDropdownItems
-                  sections={aiSections}
-                  onNavigate={handleNavigation}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() => handleNavigation("/movies", true)}
-                className="
-                  mt-1
-                  flex
-                  w-full
-                  items-center
-                  gap-3
-                  rounded-lg
-                  px-3
-                  py-2.5
-                  text-left
-                  text-sm
-                  font-medium
-                  transition-colors
-                  hover:bg-black/5
-                  dark:hover:bg-white/5
-                "
-                style={{
-                  color: "var(--text-primary)",
-                }}
-              >
-                <Search size={17} />
-                Search Movies
-              </button>
-
-              {!loading && user && (
-                <>
-                  <Link
-                    to="/favorites"
-                    onClick={closeMenus}
-                    className="
-                      mt-1
-                      flex
-                      items-center
-                      gap-2
-                      rounded-lg
-                      px-3
-                      py-2.5
-                      text-sm
-                      font-medium
-                      transition-colors
-                      hover:bg-black/5
-                      dark:hover:bg-white/5
-                    "
-                    style={{
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <Heart size={16} />
-                    Favorites
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="
-                      mt-2
-                      w-full
-                      rounded-lg
-                      px-3
-                      py-2.5
-                      text-left
-                      text-sm
-                      font-medium
-                    "
-                    style={{
-                      color: "var(--primary)",
-                    }}
-                  >
-                    Sign out
-                  </button>
-                </>
-              )}
+            <div className="relative">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                autoFocus
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoCapitalize="none"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search movies…"
+                aria-label="Search movies"
+                className="h-12 w-full rounded-2xl border border-line bg-surface pl-11 pr-4 text-ink outline-none focus:border-brand/70"
+              />
             </div>
-          </div>
+          </form>
         )}
       </header>
 
-      <div className="h-14" aria-hidden="true" />
+      {!overlay && (
+        <div
+          aria-hidden="true"
+          className="h-[calc(3.5rem+env(safe-area-inset-top,0px))]"
+        />
+      )}
+
+      {/* Mobile tab bar */}
+      <nav
+        aria-label="Primary"
+        className="pb-safe fixed inset-x-0 bottom-0 z-50 border-t border-line bg-canvas/90 backdrop-blur-xl md:hidden"
+      >
+        <ul className="grid grid-cols-5">
+          {TAB_ITEMS.map(({ label, to, icon: Icon, auth }) => {
+            const active =
+              to === "/" ? pathname === "/" : pathname.startsWith(to);
+
+            return (
+              <li key={label}>
+                <Link
+                  to={to}
+                  onClick={(event) => gate(event, auth)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "group relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-medium transition-colors duration-150",
+                    active ? "text-brand" : "text-muted",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute top-0 h-0.5 w-8 rounded-full bg-brand shadow-[0_0_12px_2px_var(--primary)] transition-opacity duration-200",
+                      active ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+
+                  <Icon
+                    size={22}
+                    strokeWidth={active ? 2.3 : 1.8}
+                    className="transition-transform duration-150 group-active:scale-90"
+                  />
+
+                  {label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </>
   );
 }

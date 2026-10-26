@@ -31,6 +31,16 @@ app.get("/", (_req, res) => {
 
 app.use("/api", routes);
 
+// Docker health check
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Keep these handlers last
 app.use(notFound);
 app.use(errorHandler);
 

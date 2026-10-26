@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 
 import Hero from "../shared/components/home/Hero";
+import GenreTiles from "../shared/components/home/GenreTiles";
+import CommunityBuzz from "../shared/components/home/Communitybuzz";
 import MovieSection from "../shared/components/home/MovieSection";
 import Navbar from "../shared/components/layout/Navbar";
+import Footer from "../shared/components/layout/Footer";
 import ProfileSetupModal from "../shared/components/auth/ProfileSetupModal";
 
 import type { Movie } from "../shared/types/movie";
@@ -14,9 +17,7 @@ import {
 } from "../shared/services/movie.api";
 
 function mapMovies(
-  movies: Awaited<
-    ReturnType<typeof getTrendingMovies>
-  >["movies"],
+  movies: Awaited<ReturnType<typeof getTrendingMovies>>["movies"],
 ): Movie[] {
   return movies
     .filter((movie) => movie.poster_path)
@@ -26,8 +27,7 @@ function mapMovies(
       overview: movie.overview,
       posterPath: movie.poster_path,
       backdropPath: movie.backdrop_path,
-      releaseDate:
-        movie.release_date || null,
+      releaseDate: movie.release_date || null,
       rating: movie.vote_average,
       voteCount: 0,
       popularity: 0,
@@ -37,82 +37,68 @@ function mapMovies(
     }));
 }
 
+function RailSkeleton() {
+  return (
+    <div aria-hidden="true" className="mb-10">
+      <div className="skeleton mb-4 h-6 w-44 rounded-md" />
+
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <div
+            key={index}
+            className="skeleton aspect-2/3 w-[34vw] max-w-[190px] min-w-[116px] flex-none rounded-xl sm:w-[172px] lg:w-[188px]"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Home() {
-  const [trendingMovies, setTrendingMovies] =
-    useState<Movie[]>([]);
-
-  const [upcomingMovies, setUpcomingMovies] =
-    useState<Movie[]>([]);
-
-  const [popularMovies, setPopularMovies] =
-    useState<Movie[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
+  const [trending, setTrending] = useState<Movie[]>([]);
+  const [upcoming, setUpcoming] = useState<Movie[]>([]);
+  const [popular, setPopular] = useState<Movie[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadMovies = async () => {
+    const load = async () => {
       setLoading(true);
 
-      const [
-        trendingResult,
-        upcomingResult,
-        popularResult,
-      ] = await Promise.allSettled([
-        getTrendingMovies(),
-        getUpcomingMovies(),
-        getPopularMovies(),
-      ]);
+      const [trendingResult, upcomingResult, popularResult] =
+        await Promise.allSettled([
+          getTrendingMovies(),
+          getUpcomingMovies(),
+          getPopularMovies(),
+        ]);
 
       if (!mounted) {
         return;
       }
 
-      if (
-        trendingResult.status ===
-        "fulfilled"
-      ) {
-        setTrendingMovies(
-          mapMovies(
-            trendingResult.value.movies,
-          ),
-        );
-      } else {
-        setTrendingMovies([]);
-      }
+      setTrending(
+        trendingResult.status === "fulfilled"
+          ? mapMovies(trendingResult.value.movies)
+          : [],
+      );
 
-      if (
-        upcomingResult.status ===
-        "fulfilled"
-      ) {
-        setUpcomingMovies(
-          mapMovies(
-            upcomingResult.value.movies,
-          ),
-        );
-      } else {
-        setUpcomingMovies([]);
-      }
+      setUpcoming(
+        upcomingResult.status === "fulfilled"
+          ? mapMovies(upcomingResult.value.movies)
+          : [],
+      );
 
-      if (
-        popularResult.status ===
-        "fulfilled"
-      ) {
-        setPopularMovies(
-          mapMovies(
-            popularResult.value.movies,
-          ),
-        );
-      } else {
-        setPopularMovies([]);
-      }
+      setPopular(
+        popularResult.status === "fulfilled"
+          ? mapMovies(popularResult.value.movies)
+          : [],
+      );
 
       setLoading(false);
     };
 
-    loadMovies();
+    void load();
 
     return () => {
       mounted = false;
@@ -120,46 +106,47 @@ function Home() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor:
-          "var(--background)",
-        color: "var(--text-primary)",
-      }}
-    >
-      <Navbar />
+    <div className="min-h-screen">
+      <Navbar overlay />
 
       <main>
         <Hero />
 
-        <div className="mx-auto w-full max-w-363 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-          {!loading && (
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-6 pt-8 sm:px-6 lg:px-8">
+          {loading ? (
+            <>
+              <RailSkeleton />
+              <RailSkeleton />
+            </>
+          ) : (
             <>
               <MovieSection
-                title="Trending Movies"
-                movies={trendingMovies}
+                title="Trending Now"
+                movies={trending}
                 viewAllPath="/movies?category=trending"
-                category="trending"
               />
 
+              <GenreTiles />
+
               <MovieSection
-                title="Upcoming Movies"
-                movies={upcomingMovies}
+                title="Upcoming"
+                movies={upcoming}
                 viewAllPath="/movies?category=upcoming"
-                category="upcoming"
               />
 
               <MovieSection
                 title="Popular Movies"
-                movies={popularMovies}
+                movies={popular}
                 viewAllPath="/movies?category=popular"
-                category="popular"
               />
+
+              <CommunityBuzz />
             </>
           )}
         </div>
       </main>
+
+      <Footer />
 
       <ProfileSetupModal />
     </div>

@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
-import {
-  addToFavorites,
-  getFavoriteStatus,
-  removeFromFavorites,
-} from "../../services/favorites.api";
+import { useLibraryStore } from "../../../store/library.store";
+import { cn } from "../../lib/cn";
 
 interface FavoriteButtonProps {
   tmdbId: number;
@@ -19,98 +16,47 @@ export default function FavoriteButton({
   variant = "icon",
   className = "",
 }: FavoriteButtonProps) {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
+  const active = useLibraryStore((state) => state.favorites.has(tmdbId));
 
-  useEffect(() => {
+  const handleClick = () => {
+    if (loading) {
+      return;
+    }
+
     if (!user) {
-      setIsFavorite(false);
+      navigate("/signin");
       return;
     }
 
-    const checkStatus = async () => {
-      try {
-        setChecking(true);
-
-        const status = await getFavoriteStatus(tmdbId);
-
-        setIsFavorite(status);
-      } catch {
-        setIsFavorite(false);
-      } finally {
-        setChecking(false);
-      }
-    };
-
-    checkStatus();
-  }, [tmdbId, user]);
-
-  const handleToggle = async () => {
-    if (!user || loading) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (isFavorite) {
-        await removeFromFavorites(tmdbId);
-        setIsFavorite(false);
-      } else {
-        await addToFavorites(tmdbId);
-        setIsFavorite(true);
-      }
-    } finally {
-      setLoading(false);
-    }
+    void useLibraryStore.getState().toggle("favorites", tmdbId);
   };
 
-  const disabled = loading || checking || !user;
-
-  if (variant === "button") {
-    return (
-      <button
-        type="button"
-        onClick={handleToggle}
-        disabled={disabled}
-        className={`flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      >
-        <Heart
-          size={18}
-          fill={isFavorite ? "currentColor" : "none"}
-        />
-
-        {isFavorite
-          ? "Added to Favorites"
-          : "Add to Favorites"}
-      </button>
-    );
-  }
+  const label = active ? "Remove from favorites" : "Add to favorites";
 
   return (
     <button
       type="button"
-      onClick={handleToggle}
-      disabled={disabled}
-      aria-label={
-        isFavorite
-          ? "Remove from favorites"
-          : "Add to favorites"
-      }
-      title={
-        isFavorite
-          ? "Remove from favorites"
-          : "Add to favorites"
-      }
-      className={`flex h-9 w-9 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      onClick={handleClick}
+      aria-pressed={active}
+      aria-label={variant === "icon" ? label : undefined}
+      title={label}
+      className={cn(
+        "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur-md transition-[transform,background-color] duration-150 hover:bg-white/20 active:scale-95",
+        variant === "icon" ? "w-11" : "px-4",
+        className,
+      )}
     >
       <Heart
         size={18}
-        fill={isFavorite ? "currentColor" : "none"}
+        className={cn(active && "fill-brand text-brand")}
       />
+
+      {variant === "button" && (
+        <span>{active ? "Favorited" : "Add to Favorites"}</span>
+      )}
     </button>
   );
 }

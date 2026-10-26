@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Play,
   Plus,
@@ -15,11 +16,9 @@ import {
   type TMDBMovie,
 } from "../../services/movie.api";
 
-import { useAuth } from "../../../shared/context/AuthContext";
-
-interface HeroProps {
-  movies?: TMDBMovie[];
-}
+import { useAuth } from "../../context/AuthContext";
+import { useLibraryStore } from "../../../store/library.store";
+import { cn } from "../../lib/cn";
 
 const INDUSTRIES: MovieIndustry[] = [
   "hollywood",
@@ -39,141 +38,119 @@ const INDUSTRY_LABELS: Record<MovieIndustry, string> = {
   kdrama: "K-Drama",
 };
 
-const HERO_DURATION = 6000;
 const IMG = "https://image.tmdb.org/t/p";
 
 const hasImage = (item: TMDBMovie) =>
   Boolean(item.backdrop_path || item.poster_path);
 
-const pickRandom = (list: TMDBMovie[]) =>
+const pickRandom = <T,>(list: T[]) =>
   list[Math.floor(Math.random() * list.length)];
 
-export default function Hero({ movies = [] }: HeroProps) {
+const backdropOf = (movie: TMDBMovie) =>
+  `${IMG}/w1280${movie.backdrop_path ?? movie.poster_path}`;
+
+const ghost =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 text-sm font-semibold text-white backdrop-blur-md transition-[transform,background-color] duration-150 hover:bg-white/20 active:scale-95";
+
+export default function Hero() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
-  const [movie, setMovie] = useState<TMDBMovie | null>(
-    () => movies.find(hasImage) ?? null,
-  );
-
-  const [industryIndex, setIndustryIndex] = useState(0);
+  const [picked, setPicked] = useState<
+    Partial<Record<MovieIndustry, TMDBMovie>>
+  >({});
+  const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [watchlist, setWatchlist] = useState<Set<number>>(
-    new Set(),
-  );
-  const [favorites, setFavorites] = useState<Set<number>>(
-    new Set(),
-  );
-  const [backdrops, setBackdrops] = useState<string[]>([]);
+  const [layers, setLayers] = useState<string[]>([]);
 
-  const cache = useRef<Map<MovieIndustry, TMDBMovie[]>>(
-    new Map(),
+  const [reduceMotion] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
 
-  const currentIndustry = INDUSTRIES[industryIndex];
+  const swipeStart = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (!movie) {
-      const fallback = movies.find(hasImage);
-
-      if (fallback) {
-        setMovie(fallback);
-      }
-    }
-  }, [movies, movie]);
-
+  /* Load one featured title per industry, one after another, so slide 1 shows immediately */
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      try {
-        let list = cache.current.get(currentIndustry);
-
-        if (!list) {
-          const result =
-            await getIndustryTrendingMovies(
-              currentIndustry,
-            );
-
-          list = result.filter(hasImage);
-          cache.current.set(
-            currentIndustry,
-            list,
+      for (const industry of INDUSTRIES) {
+        try {
+          const list = (await getIndustryTrendingMovies(industry)).filter(
+            hasImage,
           );
-        }
 
-        if (
-          cancelled ||
-          list.length === 0
-        ) {
-          return;
-        }
+          if (cancelled) {
+            return;
+          }
 
-        setMovie(pickRandom(list));
-      } catch {
-        if (cancelled) {
-          return;
-        }
-
-        const fallback =
-          movies.filter(hasImage);
-
-        if (fallback.length > 0) {
-          setMovie(pickRandom(fallback));
+          if (list.length > 0) {
+            const movie = pickRandom(list);
+            setPicked((current) => ({ ...current, [industry]: movie }));
+          }
+        } catch {
+          /* skip this industry */
         }
       }
     };
 
-    load();
+    void load();
 
     return () => {
       cancelled = true;
     };
-  }, [currentIndustry]);
+  }, []);
 
-  const imageUrl = movie
-    ? movie.backdrop_path
-      ? `${IMG}/original${movie.backdrop_path}`
-      : `${IMG}/original${movie.poster_path}`
-    : null;
+  const slides = useMemo(
+    () =>
+      INDUSTRIES.flatMap((industry) =>
+        picked[industry]
+          ? [{ industry, movie: picked[industry] as TMDBMovie }]
+          : [],
+      ),
+    [picked],
+  );
 
+  const safeIndex = slides.length > 0 ? index % slides.length : 0;
+  const active = slides[safeIndex];
+
+  const goTo = (next: number) => {
+    if (slides.length === 0) {
+      return;
+    }
+
+    setIndex((next + slides.length) % slides.length);
+  };
+
+  const src = active ? backdropOf(active.movie) : null;
+
+  /* Preload, then crossfade (keep only the previous + current layer) */
   useEffect(() => {
-    if (!imageUrl) {
+    if (!src) {
       return;
     }
 
     const preload = new Image();
 
-    preload.src = imageUrl;
-
     preload.onload = () =>
-      setBackdrops((prev) =>
-        prev[prev.length - 1] === imageUrl
-          ? prev
-          : [...prev, imageUrl].slice(-2),
+      setLayers((current) =>
+        current[current.length - 1] === src
+          ? current
+          : [...current, src].slice(-2),
       );
-  }, [imageUrl]);
 
-  useEffect(() => {
-    if (paused) {
-      return;
-    }
+    preload.src = src;
+  }, [src]);
 
-    const timer = window.setTimeout(() => {
-      setIndustryIndex(
-        (current) =>
-          (current + 1) %
-          INDUSTRIES.length,
-      );
-    }, HERO_DURATION);
+  const inFavorites = useLibraryStore((state) =>
+    active ? state.favorites.has(active.movie.id) : false,
+  );
 
-    return () =>
-      window.clearTimeout(timer);
-  }, [industryIndex, paused]);
+  const inWatchlist = useLibraryStore((state) =>
+    active ? state.watchlist.has(active.movie.id) : false,
+  );
 
-  const requireAuth = (
-    callback: () => void,
-  ) => {
+  const requireAuth = (callback: () => void) => {
     if (loading) {
       return;
     }
@@ -186,331 +163,255 @@ export default function Hero({ movies = [] }: HeroProps) {
     callback();
   };
 
-  const toggleWatchlist = () => {
-    if (!movie) {
-      return;
-    }
-
-    requireAuth(() => {
-      setWatchlist((prev) => {
-        const next = new Set(prev);
-
-        if (next.has(movie.id)) {
-          next.delete(movie.id);
-        } else {
-          next.add(movie.id);
-        }
-
-        return next;
-      });
-    });
-  };
-
-  const toggleFavorite = () => {
-    if (!movie) {
-      return;
-    }
-
-    requireAuth(() => {
-      setFavorites((prev) => {
-        const next = new Set(prev);
-
-        if (next.has(movie.id)) {
-          next.delete(movie.id);
-        } else {
-          next.add(movie.id);
-        }
-
-        return next;
-      });
-    });
-  };
-
-  const openMovieDetails = () => {
-    if (!movie) {
-      return;
-    }
-
-    requireAuth(() => {
-      navigate(`/movie/${movie.id}`);
-    });
-  };
-
-  if (!movie || !imageUrl) {
+  if (!active || !src) {
     return (
       <section
-        className="relative min-h-[82vh] overflow-hidden bg-black"
         aria-busy="true"
-      >
-        <div className="absolute inset-0 animate-pulse bg-zinc-900" />
-
-        <div className="relative mx-auto flex min-h-[82vh] max-w-7xl items-end px-6 pb-24 pt-32 lg:px-8">
-          <div className="w-full max-w-xl space-y-4">
-            <div className="h-3 w-24 rounded bg-white/10" />
-            <div className="h-14 w-4/5 rounded bg-white/10" />
-            <div className="h-3 w-full rounded bg-white/10" />
-            <div className="h-3 w-2/3 rounded bg-white/10" />
-          </div>
-        </div>
-      </section>
+        className="skeleton h-[74svh] min-h-[480px] md:h-[86svh] md:max-h-[820px]"
+      />
     );
   }
 
-  const releaseYear = movie.release_date
-    ? new Date(
-        movie.release_date,
-      ).getFullYear()
+  const { movie, industry } = active;
+
+  const year = movie.release_date
+    ? new Date(movie.release_date).getFullYear()
     : null;
 
-  const isWatchlisted =
-    watchlist.has(movie.id);
+  const onPointerDown = (event: React.PointerEvent) => {
+    if (event.pointerType !== "mouse") {
+      swipeStart.current = event.clientX;
+    }
+  };
 
-  const isFavorited =
-    favorites.has(movie.id);
+  const onPointerUp = (event: React.PointerEvent) => {
+    if (swipeStart.current === null) {
+      return;
+    }
+
+    const delta = event.clientX - swipeStart.current;
+    swipeStart.current = null;
+
+    if (Math.abs(delta) > 50) {
+      goTo(safeIndex + (delta < 0 ? 1 : -1));
+    }
+  };
 
   return (
     <section
-      className="relative min-h-[82vh] overflow-hidden bg-black"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
       aria-roledescription="carousel"
       aria-label="Featured movies"
+      style={{ touchAction: "pan-y" }}
+      onPointerEnter={(event) => event.pointerType === "mouse" && setPaused(true)}
+      onPointerLeave={(event) => event.pointerType === "mouse" && setPaused(false)}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => (swipeStart.current = null)}
+      className="relative isolate h-[74svh] min-h-[480px] overflow-hidden bg-black md:h-[86svh] md:max-h-[820px]"
     >
-      <style>{`
-        @keyframes heroFade {
-          from {
-            opacity: 0;
-            transform: scale(1.04);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes heroRise {
-          from {
-            opacity: 0;
-            transform: translateY(14px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hero-anim {
-            animation: none !important;
-          }
-        }
-      `}</style>
-
-      <div
-        className="absolute inset-0"
-        aria-hidden="true"
-      >
-        {backdrops.map((src, i) => (
+      {/* Backdrops */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10">
+        {layers.map((layer, i) => (
           <img
-            key={src}
-            src={src}
+            key={layer}
+            src={layer}
             alt=""
-            className="hero-anim absolute inset-0 h-full w-full object-cover object-[center_20%]"
-            style={
-              i ===
-                backdrops.length - 1 &&
-              backdrops.length > 1
-                ? {
-                    animation:
-                      "heroFade 1100ms ease-out both",
-                  }
-                : undefined
-            }
+            decoding="async"
+            fetchPriority={i === 0 ? "high" : "auto"}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover object-[center_20%]",
+              reduceMotion ? "animate-fade" : "animate-hero-layer",
+            )}
           />
         ))}
       </div>
 
       <div
-        className="absolute inset-0"
         aria-hidden="true"
-        style={{
-          background: `
-            linear-gradient(
-              90deg,
-              rgba(0,0,0,0.92) 0%,
-              rgba(0,0,0,0.72) 32%,
-              rgba(0,0,0,0.25) 70%,
-              rgba(0,0,0,0.1) 100%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(0,0,0,0.55) 0%,
-              rgba(0,0,0,0) 22%,
-              rgba(0,0,0,0) 55%,
-              var(--background) 100%
-            )
-          `,
-        }}
+        className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.55)_38%,rgba(0,0,0,0.1)_75%),linear-gradient(180deg,rgba(0,0,0,0.55)_0%,transparent_26%,transparent_52%,var(--background)_100%)]"
       />
 
-      <div className="relative mx-auto flex min-h-[82vh] max-w-7xl flex-col justify-end px-6 pb-20 pt-32 lg:px-8 lg:pb-24">
-        <div>
-          <div
-            key={movie.id}
-            className="hero-anim max-w-2xl"
-            style={{
-              animation:
-                "heroRise 650ms ease-out both",
-            }}
-            aria-live="polite"
-          >
-            <div className="mb-5 flex items-center gap-3">
-              <span
-                className="h-px w-10"
-                style={{
-                  backgroundColor:
-                    "var(--primary)",
-                }}
-              />
+      <div className="absolute inset-x-0 bottom-0 mx-auto flex max-w-[1400px] items-end justify-between gap-8 px-4 pb-7 sm:px-6 lg:px-8 lg:pb-12">
+        <div
+          key={movie.id}
+          aria-live="polite"
+          className="animate-rise max-w-2xl"
+        >
+          <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-brand sm:text-sm">
+            <span className="h-2 w-2 rounded-full bg-brand" />
+            Trending in {INDUSTRY_LABELS[industry]}
+          </p>
 
-              <span
-                className="text-sm font-medium"
-                style={{
-                  color:
-                    "var(--primary)",
-                }}
-              >
-                Trending in{" "}
-                {
-                  INDUSTRY_LABELS[
-                    currentIndustry
-                  ]
-                }
-              </span>
-            </div>
+          <h1 className="font-display text-[2.4rem] font-extrabold leading-[1.02] tracking-tight text-white text-balance sm:text-6xl lg:text-7xl">
+            {movie.title}
+          </h1>
 
-            <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight text-white text-balance sm:text-5xl md:text-6xl">
-              {movie.title}
-            </h1>
+          <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
+            {year && <span>{year}</span>}
 
-            <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm text-white/80">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 backdrop-blur-md">
+            {movie.vote_average > 0 && (
+              <span className="flex items-center gap-1 font-semibold text-white">
                 <Star
                   size={14}
                   fill="currentColor"
-                  style={{
-                    color:
-                      "var(--primary)",
-                  }}
+                  strokeWidth={0}
+                  className="text-gold"
                 />
-
-                <span className="font-semibold text-white">
-                  {movie.vote_average.toFixed(
-                    1,
-                  )}
-                </span>
+                {movie.vote_average.toFixed(1)}
               </span>
-
-              {releaseYear && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 backdrop-blur-md">
-                  <CalendarDays
-                    size={14}
-                  />
-                  {releaseYear}
-                </span>
-              )}
-
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 backdrop-blur-md">
-                Movie
-              </span>
-            </div>
-
-            {movie.overview && (
-              <p className="mt-6 line-clamp-3 max-w-xl text-[15px] leading-7 text-white/70 sm:text-base sm:leading-8">
-                {movie.overview}
-              </p>
             )}
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={
-                  openMovieDetails
-                }
-                className="inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                style={{
-                  backgroundColor:
-                    "var(--primary)",
-                  boxShadow:
-                    "0 10px 30px -10px var(--primary)",
-                }}
-              >
-                <Play
-                  size={16}
-                  fill="currentColor"
-                />
-                Watch details
-              </button>
+            {movie.genres?.slice(0, 2).map((genre) => (
+              <span key={genre}>{genre}</span>
+            ))}
+          </p>
 
+          {movie.overview && (
+            <p className="mt-4 line-clamp-2 max-w-xl text-sm leading-relaxed text-white/75 sm:line-clamp-3 sm:text-base">
+              {movie.overview}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                requireAuth(() => navigate(`/movie/${movie.id}`))
+              }
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_var(--primary)] transition-[transform,background-color] duration-150 hover:bg-brand-hover active:scale-95"
+            >
+              <Play size={16} fill="currentColor" strokeWidth={0} />
+              View details
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={inFavorites}
+              aria-label={
+                inFavorites ? "Remove from favorites" : "Add to favorites"
+              }
+              onClick={() =>
+                requireAuth(
+                  () =>
+                    void useLibraryStore
+                      .getState()
+                      .toggle("favorites", movie.id),
+                )
+              }
+              className={cn(ghost, "w-11 sm:w-auto sm:px-4")}
+            >
+              <Heart
+                size={17}
+                className={cn(inFavorites && "fill-brand text-brand")}
+              />
+              <span className="hidden sm:inline">
+                {inFavorites ? "In favorites" : "Add to favorites"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={inWatchlist}
+              onClick={() =>
+                requireAuth(
+                  () =>
+                    void useLibraryStore
+                      .getState()
+                      .toggle("watchlist", movie.id),
+                )
+              }
+              className={cn(ghost, "px-4")}
+            >
+              {inWatchlist ? <Check size={17} /> : <Plus size={17} />}
+              {inWatchlist ? "In watchlist" : "Watchlist"}
+            </button>
+          </div>
+
+          {/* Progress: the active bar advances the slide when its animation ends */}
+          {slides.length > 1 && (
+            <div
+              role="tablist"
+              aria-label="Featured slides"
+              className="mt-7 flex items-center gap-2"
+            >
+              {slides.map((slide, i) => (
+                <button
+                  key={slide.industry}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === safeIndex}
+                  aria-label={`Show ${slide.movie.title}`}
+                  onClick={() => setIndex(i)}
+                  className="flex h-6 w-9 items-center sm:w-14"
+                >
+                  <span className="block h-1 w-full overflow-hidden rounded-full bg-white/25">
+                    <span
+                      onAnimationEnd={() => !reduceMotion && goTo(safeIndex + 1)}
+                      style={{
+                        animationPlayState: paused ? "paused" : "running",
+                      }}
+                      className={cn(
+                        "block h-full w-full origin-left rounded-full bg-brand",
+                        i < safeIndex || (i === safeIndex && reduceMotion)
+                          ? "scale-x-100"
+                          : i === safeIndex
+                            ? "animate-progress"
+                            : "scale-x-0",
+                      )}
+                    />
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: poster strip + arrows */}
+        {slides.length > 1 && (
+          <div className="hidden shrink-0 flex-col items-center gap-3 lg:flex">
+            {slides.map((slide, i) => (
               <button
+                key={slide.industry}
                 type="button"
-                onClick={
-                  toggleWatchlist
-                }
-                aria-pressed={
-                  isWatchlisted
-                }
-                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-md transition duration-200 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                {isWatchlisted ? (
-                  <Check size={17} />
-                ) : (
-                  <Plus size={17} />
+                aria-label={`Show ${slide.movie.title}`}
+                onClick={() => setIndex(i)}
+                className={cn(
+                  "h-[84px] w-14 overflow-hidden rounded-lg ring-1 ring-white/25 transition-[transform,opacity] duration-300",
+                  i === safeIndex
+                    ? "scale-110 opacity-100 ring-2 ring-brand"
+                    : "opacity-55 hover:opacity-100",
                 )}
+              >
+                <img
+                  src={`${IMG}/w185${slide.movie.poster_path ?? slide.movie.backdrop_path}`}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ))}
 
-                {isWatchlisted
-                  ? "In watchlist"
-                  : "Add to watchlist"}
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                aria-label="Previous slide"
+                onClick={() => goTo(safeIndex - 1)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-black/30 text-white transition-transform duration-150 active:scale-90"
+              >
+                <ChevronLeft size={18} />
               </button>
 
               <button
                 type="button"
-                onClick={
-                  toggleFavorite
-                }
-                aria-pressed={
-                  isFavorited
-                }
-                aria-label={
-                  isFavorited
-                    ? `Remove ${movie.title} from favorites`
-                    : `Add ${movie.title} to favorites`
-                }
-                className={`inline-flex h-11.5 w-11.5 items-center justify-center rounded-lg border border-white/20 bg-white/10 backdrop-blur-md transition duration-200 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                  isFavorited
-                    ? "text-red-500"
-                    : "text-white"
-                }`}
+                aria-label="Next slide"
+                onClick={() => goTo(safeIndex + 1)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-white/25 bg-black/30 text-white transition-transform duration-150 active:scale-90"
               >
-                <Heart
-                  size={19}
-                  fill={
-                    isFavorited
-                      ? "currentColor"
-                      : "none"
-                  }
-                  strokeWidth={
-                    isFavorited
-                      ? 2.2
-                      : 1.8
-                  }
-                />
+                <ChevronRight size={18} />
               </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

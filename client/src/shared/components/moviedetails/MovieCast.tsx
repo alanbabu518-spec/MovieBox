@@ -1,95 +1,50 @@
-import type { MovieDetails } from "../../../shared/services/movie.api";
+import SectionHeader from "../ui/Sectionheader";
 
-interface MovieCastProps {
-  movie: MovieDetails;
-}
+import type { MovieDetails } from "../../services/movie.api";
 
-export default function MovieCast({
-  movie,
-}: MovieCastProps) {
-  const cast = movie.credits.cast
-    .filter((person) => person.name)
-    .slice(0, 10);
+export default function MovieCast({ movie }: { movie: MovieDetails }) {
+  const cast = movie.credits.cast.filter((person) => person.name).slice(0, 14);
 
   if (cast.length === 0) {
     return null;
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
-      <div className="mb-7">
-        <p
-          className="mb-2 text-xs font-semibold uppercase tracking-[0.22em]"
-          style={{
-            color: "var(--primary)",
-          }}
-        >
-          MovieBox
-        </p>
+    <section className="mx-auto max-w-[1400px] px-4 pb-10 sm:px-6 lg:px-8">
+      <SectionHeader title="Cast" />
 
-        <h2
-          className="font-display text-2xl font-bold sm:text-3xl"
-          style={{
-            color: "var(--text-primary)",
-          }}
-        >
-          Cast
-        </h2>
-      </div>
-
-      <div className="flex gap-5 overflow-x-auto pb-3">
+      <ul
+        role="list"
+        className="scrollbar-none -mx-4 flex snap-x gap-5 overflow-x-auto overscroll-x-contain px-4 pb-2 sm:-mx-6 sm:gap-7 sm:px-6 lg:-mx-8 lg:px-8"
+      >
         {cast.map((person) => (
-          <div
-            key={person.id}
-            className="w-28 flex-none sm:w-32"
-          >
-            <div className="aspect-3/4 overflow-hidden rounded-lg">
+          <li key={person.id} className="w-24 flex-none snap-start text-center sm:w-28">
+            <div className="mx-auto aspect-square w-full overflow-hidden rounded-full bg-card ring-1 ring-line">
               {person.profile_path ? (
                 <img
-                  src={`https://image.tmdb.org/t/p/w300${person.profile_path}`}
-                  alt={person.name}
+                  src={`https://image.tmdb.org/t/p/w185${person.profile_path}`}
+                  alt=""
                   loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div
-                  className="flex h-full items-center justify-center"
-                  style={{
-                    backgroundColor: "var(--card)",
-                  }}
-                >
-                  <span
-                    className="text-xs"
-                    style={{
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    No Image
-                  </span>
+                <div className="grid h-full w-full place-items-center text-lg font-bold text-muted">
+                  {person.name.charAt(0)}
                 </div>
               )}
             </div>
 
-            <p
-              className="mt-3 truncate text-sm font-semibold"
-              style={{
-                color: "var(--text-primary)",
-              }}
-            >
+            <p className="mt-2.5 line-clamp-2 text-[13px] font-semibold leading-tight">
               {person.name}
             </p>
 
-            <p
-              className="mt-1 truncate text-xs"
-              style={{
-                color: "var(--text-secondary)",
-              }}
-            >
-              {person.character || "Unknown"}
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted">
+              {person.character || "—"}
             </p>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

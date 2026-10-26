@@ -1,19 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- viewport-fit=cover lets the page paint under the notch; env(safe-area-inset-*) pads content back out.
+         Zoom stays enabled on purpose (accessibility). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#08080b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
     <title>MovieBox</title>
+
     <script>
       (() => {
         const theme = localStorage.getItem("moviebox-theme");
-
-        if (theme === "light" || theme === "dark") {
-          document.documentElement.setAttribute("data-theme", theme);
-        } else {
-          document.documentElement.setAttribute("data-theme", "dark");
-        }
+        document.documentElement.setAttribute(
+          "data-theme",
+          theme === "light" || theme === "dark" ? theme : "dark",
+        );
       })();
     </script>
   </head>

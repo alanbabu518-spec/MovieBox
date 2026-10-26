@@ -1,59 +1,251 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
 
 @import "tailwindcss";
 
+/* `dark:` follows the app's data-theme switch instead of the OS setting */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ───────── Design tokens ───────── */
 :root {
-  --background: #0a0a0a;
-  --surface: #111111;
-  --card: #171717;
-  --border: #27272a;
+  color-scheme: dark;
+
+  --background: #08080b;
+  --surface: #0f0f14;
+  --card: #15151b;
+  --elevated: #1c1c24;
+  --border: rgba(255, 255, 255, 0.09);
 
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
+  --text-secondary: #a3a3b2;
 
   --primary: #e50914;
-  --primary-hover: #f5222d;
+  --primary-hover: #ff2430;
+  --gold: #f5b301;
+  --glow: rgba(229, 9, 20, 0.16);
 }
 
 :root[data-theme="light"] {
-  --background: #f5f5f5;
+  color-scheme: light;
+
+  --background: #f6f6f8;
   --surface: #ffffff;
   --card: #ffffff;
-  --border: #e4e4e7;
+  --elevated: #efeff3;
+  --border: rgba(0, 0, 0, 0.09);
 
-  --text-primary: #18181b;
-  --text-secondary: #71717a;
+  --text-primary: #14141a;
+  --text-secondary: #62626f;
 
   --primary: #d90416;
   --primary-hover: #b90312;
+  --glow: rgba(217, 4, 22, 0.08);
 }
 
-* {
-  box-sizing: border-box;
+/* Tailwind utilities backed by the tokens: bg-canvas, bg-card, text-muted, border-line, bg-brand … */
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui,
+    sans-serif;
+
+  --color-canvas: var(--background);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-line: var(--border);
+  --color-ink: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-brand: var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-gold: var(--gold);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html,
-body,
-#root {
-  min-width: 320px;
-  min-height: 100%;
-  margin: 0;
+/* ───────── Base: the "feels installed" layer (mobile-native) ───────── */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent; /* no grey flash on tap */
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none; /* no pull-to-refresh / rubber band hijack */
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One static, fixed glow layer: composited once, never repainted on scroll */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60rem 34rem at 92% -8%, var(--glow), transparent 65%),
+      radial-gradient(48rem 30rem at -12% 108%, var(--glow), transparent 60%);
+  }
+
+  /* No 300ms tap delay */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  summary,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+  }
+
+  /* Controls are not selectable text (content still is) */
+  button,
+  [role="button"],
+  [role="tab"] {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* iOS zooms the page when an input is < 16px */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 45%, transparent);
+  }
 }
 
-html {
-  scroll-behavior: smooth;
+/* Reserve room for the mobile tab bar (class toggled by <Navbar />) */
+html.has-bottom-nav body {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  html.has-bottom-nav body {
+    padding-bottom: 0;
+  }
 }
 
-body {
-  background-color: var(--background);
-  color: var(--text-primary);
-  font-family: "Inter", sans-serif;
-  transition:
-    background-color 250ms ease,
-    color 250ms ease;
+/* ───────── Utilities ───────── */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
+/* ───────── Motion (transform + opacity only) ───────── */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes kenburns {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.09);
+  }
+}
+@keyframes progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.65s var(--ease-out-expo) both;
+}
+.animate-fade {
+  animation: fade 0.9s ease-out both;
+}
+.animate-kenburns {
+  animation: kenburns 10s ease-out both;
+}
+.animate-hero-layer {
+  animation:
+    fade 0.9s ease-out both,
+    kenburns 10s ease-out both;
+}
+.animate-progress {
+  animation: progress 7s linear both;
+}
+
+/* Skeleton: the shimmer is a translating layer, not an animated background-position */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--card);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

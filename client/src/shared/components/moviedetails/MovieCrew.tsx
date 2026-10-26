@@ -1,39 +1,25 @@
-import type { MovieDetails } from "../../../shared/services/movie.api";
+import type { MovieDetails } from "../../services/movie.api";
 
-interface MovieCrewProps {
-  movie: MovieDetails;
-}
-
-export default function MovieCrew({
-  movie,
-}: MovieCrewProps) {
-  const director = movie.credits.crew.filter(
-    (person) => person.job === "Director",
-  );
-
-  const writers = movie.credits.crew.filter(
-    (person) =>
-      person.department === "Writing" ||
-      person.job === "Writer" ||
-      person.job === "Screenplay",
-  );
-
-  const producers = movie.credits.crew.filter(
-    (person) => person.job === "Producer",
-  );
+export default function MovieCrew({ movie }: { movie: MovieDetails }) {
+  const { crew } = movie.credits;
 
   const sections = [
     {
       title: "Director",
-      people: director,
+      people: crew.filter((person) => person.job === "Director"),
     },
     {
       title: "Writers",
-      people: writers,
+      people: crew.filter(
+        (person) =>
+          person.department === "Writing" ||
+          person.job === "Writer" ||
+          person.job === "Screenplay",
+      ),
     },
     {
       title: "Producers",
-      people: producers,
+      people: crew.filter((person) => person.job === "Producer"),
     },
   ].filter((section) => section.people.length > 0);
 
@@ -42,73 +28,26 @@ export default function MovieCrew({
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
-      <div className="mb-7">
-        <p
-          className="mb-2 text-xs font-semibold uppercase tracking-[0.22em]"
-          style={{
-            color: "var(--primary)",
-          }}
-        >
-          MovieBox
-        </p>
-
-        <h2
-          className="font-display text-2xl font-bold sm:text-3xl"
-          style={{
-            color: "var(--text-primary)",
-          }}
-        >
-          Crew
-        </h2>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="mx-auto max-w-[1400px] px-4 pb-12 sm:px-6 lg:px-8">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => (
-          <div key={section.title}>
-            <h3
-              className="text-sm font-semibold"
-              style={{
-                color: "var(--text-primary)",
-              }}
-            >
-              {section.title}
-            </h3>
+          <div
+            key={section.title}
+            className="rounded-2xl border border-line bg-card p-4"
+          >
+            <h3 className="text-sm font-bold">{section.title}</h3>
 
-            <div className="mt-3 space-y-2">
-              {section.people
-                .slice(0, 5)
-                .map((person) => (
-                  <div
-                    key={`${section.title}-${person.id}-${person.job}`}
-                    className="flex items-center justify-between gap-4 border-b pb-2"
-                    style={{
-                      borderColor:
-                        "var(--border)",
-                    }}
-                  >
-                    <span
-                      className="truncate text-sm"
-                      style={{
-                        color:
-                          "var(--text-secondary)",
-                      }}
-                    >
-                      {person.name}
-                    </span>
-
-                    <span
-                      className="shrink-0 text-xs"
-                      style={{
-                        color:
-                          "var(--text-secondary)",
-                      }}
-                    >
-                      {person.job}
-                    </span>
-                  </div>
-                ))}
-            </div>
+            <ul className="mt-3 space-y-2">
+              {section.people.slice(0, 5).map((person) => (
+                <li
+                  key={`${section.title}-${person.id}-${person.job}`}
+                  className="flex items-center justify-between gap-4 text-sm"
+                >
+                  <span className="truncate text-ink">{person.name}</span>
+                  <span className="shrink-0 text-xs text-muted">{person.job}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, type ReactNode } from "react";
 
 import { Heart, Play, Star } from "lucide-react";
 
@@ -16,6 +16,7 @@ interface MovieCardProps {
     movie: Movie,
     next: boolean,
   ) => void;
+  action?: ReactNode;
 }
 
 const TMDB =
@@ -41,6 +42,7 @@ function MovieCard({
   priority = false,
   isFavorite,
   onToggleFavorite,
+  action,
 }: MovieCardProps) {
   const navigate = useNavigate();
 
@@ -317,6 +319,8 @@ function MovieCard({
             </span>
           </div>
         </div>
+
+        {action}
 
         <button
           type="button"

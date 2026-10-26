@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import { Bookmark, Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
-import {
-  addToWatchlist,
-  getWatchlistStatus,
-  removeFromWatchlist,
-} from "../../services/watchlist.api";
+import { useLibraryStore } from "../../../store/library.store";
+import { cn } from "../../lib/cn";
 
 interface WatchlistButtonProps {
   tmdbId: number;
@@ -19,99 +16,46 @@ export default function WatchlistButton({
   variant = "icon",
   className = "",
 }: WatchlistButtonProps) {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
+  const active = useLibraryStore((state) => state.watchlist.has(tmdbId));
 
-  useEffect(() => {
+  const handleClick = () => {
+    if (loading) {
+      return;
+    }
+
     if (!user) {
-      setIsInWatchlist(false);
+      navigate("/signin");
       return;
     }
 
-    const checkStatus = async () => {
-      try {
-        setChecking(true);
-
-        const status = await getWatchlistStatus(tmdbId);
-
-        setIsInWatchlist(status);
-      } catch {
-        setIsInWatchlist(false);
-      } finally {
-        setChecking(false);
-      }
-    };
-
-    checkStatus();
-  }, [tmdbId, user]);
-
-  const handleToggle = async () => {
-    if (!user || loading) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (isInWatchlist) {
-        await removeFromWatchlist(tmdbId);
-        setIsInWatchlist(false);
-      } else {
-        await addToWatchlist(tmdbId);
-        setIsInWatchlist(true);
-      }
-    } finally {
-      setLoading(false);
-    }
+    void useLibraryStore.getState().toggle("watchlist", tmdbId);
   };
 
-  const disabled = loading || checking || !user;
-
-  if (variant === "button") {
-    return (
-      <button
-        type="button"
-        onClick={handleToggle}
-        disabled={disabled}
-        className={`flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      >
-        {isInWatchlist ? (
-          <Check size={18} />
-        ) : (
-          <Bookmark size={18} />
-        )}
-
-        {isInWatchlist
-          ? "In Watchlist"
-          : "Add to Watchlist"}
-      </button>
-    );
-  }
+  const label = active ? "Remove from watchlist" : "Add to watchlist";
 
   return (
     <button
       type="button"
-      onClick={handleToggle}
-      disabled={disabled}
-      aria-label={
-        isInWatchlist
-          ? "Remove from watchlist"
-          : "Add to watchlist"
-      }
-      title={
-        isInWatchlist
-          ? "Remove from watchlist"
-          : "Add to watchlist"
-      }
-      className={`flex h-9 w-9 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      onClick={handleClick}
+      aria-pressed={active}
+      aria-label={variant === "icon" ? label : undefined}
+      title={label}
+      className={cn(
+        "inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition-[transform,background-color] duration-150 active:scale-95",
+        active
+          ? "border border-white/25 bg-white/10 backdrop-blur-md hover:bg-white/20"
+          : "bg-brand shadow-[0_10px_30px_-12px_var(--primary)] hover:bg-brand-hover",
+        variant === "icon" ? "w-11" : "px-5",
+        className,
+      )}
     >
-      {isInWatchlist ? (
-        <Check size={18} />
-      ) : (
-        <Bookmark size={18} />
+      {active ? <Check size={18} /> : <Bookmark size={18} />}
+
+      {variant === "button" && (
+        <span>{active ? "In Watchlist" : "Add to Watchlist"}</span>
       )}
     </button>
   );
