@@ -9,9 +9,14 @@ import aiRoutes from "../modules/ai/ai.routes.js";
 import watchlistRoutes from "../modules/watchlist/watchlist.routes.js";
 import favoriteRoutes from "../modules/favorite/favorite.routes.js";
 
+import { csrfProtection } from "../middleware/csrf.js";
+
 const router = Router();
 
-router.use("/auth", authRoutes);
+// Protect state-changing requests across API routes.
+// Safe methods such as GET, HEAD, and OPTIONS are handled by the middleware.
+router.use(csrfProtection);
+
 router.use("/auth", authRoutes);
 router.use("/movies", movieRoutes);
 router.use("/movies", reviewRoutes);

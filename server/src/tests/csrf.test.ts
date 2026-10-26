@@ -1,89 +1,118 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { csrfProtection } from "../middleware/csrf.js";
 import { env } from "../config/env.js";
 
 describe("CSRF protection", () => {
   const createRequest = (
     method: string,
-    origin?: string,
-  ) =>
-    ({
+    options: {
+      origin?: string;
+      fetchSite?: string;
+    } = {},
+  ) => {
+    const headers: Record<string, string> = {};
+
+    if (options.origin !== undefined) {
+      headers.origin = options.origin;
+    }
+
+    if (options.fetchSite !== undefined) {
+      headers["sec-fetch-site"] = options.fetchSite;
+    }
+
+    return {
       method,
-      headers: origin ? { origin } : {},
-    }) as any;
+      headers,
+      get(name: string) {
+        return headers[name.toLowerCase()];
+      },
+    } as any;
+  };
 
   const createResponse = () => ({}) as any;
 
-  it("allows requests from the configured frontend origin", () => {
+  it("allows unsafe requests from the configured frontend origin", () => {
     const next = vi.fn();
 
     csrfProtection(
-      createRequest("POST", env.clientUrl),
+      createRequest("POST", { origin: env.clientUrl }),
       createResponse(),
       next,
     );
 
     expect(next).toHaveBeenCalledOnce();
-    expect(next).not.toHaveBeenCalledWith(
-      expect.any(Error),
-    );
+    expect(next).toHaveBeenCalledWith();
   });
 
-  it("blocks requests from an untrusted origin", () => {
+  it("rejects requests from an untrusted origin", () => {
     const next = vi.fn();
 
     csrfProtection(
-      createRequest("POST", "https://malicious.example.com"),
+      createRequest("POST", {
+        origin: "https://malicious.example.com",
+      }),
       createResponse(),
       next,
     );
-
-    expect(next).toHaveBeenCalledOnce();
 
     const error = next.mock.calls[0]?.[0];
 
     expect(error).toBeDefined();
-
-    if (!error) {
-      return;
-    }
-
     expect(error.statusCode).toBe(403);
     expect(error.message).toBe("Invalid request origin");
   });
 
-  it("allows requests without an Origin header", () => {
+  it("rejects unsafe requests without an Origin header", () => {
+    const next = vi.fn();
+
+    csrfProtection(createRequest("POST"), createResponse(), next);
+
+    const error = next.mock.calls[0]?.[0];
+
+    expect(error).toBeDefined();
+    expect(error.statusCode).toBe(403);
+  });
+
+  it("rejects cross-site requests from the configured origin", () => {
     const next = vi.fn();
 
     csrfProtection(
-      createRequest("POST"),
+      createRequest("POST", {
+        origin: env.clientUrl,
+        fetchSite: "cross-site",
+      }),
       createResponse(),
       next,
     );
 
-    expect(next).toHaveBeenCalledOnce();
-    expect(next).toHaveBeenCalledWith();
+    const error = next.mock.calls[0]?.[0];
+
+    expect(error).toBeDefined();
+    expect(error.statusCode).toBe(403);
   });
 
-  it("does not check Origin for GET requests", () => {
-    const next = vi.fn();
+  it.each(["GET", "HEAD", "OPTIONS"])(
+    "allows safe HTTP method %s without an Origin header",
+    (method) => {
+      const next = vi.fn();
 
-    csrfProtection(
-      createRequest("GET", "https://malicious.example.com"),
-      createResponse(),
-      next,
-    );
+      csrfProtection(createRequest(method), createResponse(), next);
 
-    expect(next).toHaveBeenCalledOnce();
-    expect(next).toHaveBeenCalledWith();
-  });
+      expect(next).toHaveBeenCalledOnce();
+      expect(next).toHaveBeenCalledWith();
+    },
+  );
 
-  it("checks all unsafe HTTP methods", () => {
-    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "rejects %s requests from untrusted origins",
+    (method) => {
       const next = vi.fn();
 
       csrfProtection(
-        createRequest(method, "https://malicious.example.com"),
+        createRequest(method, {
+          origin: "https://malicious.example.com",
+        }),
         createResponse(),
         next,
       );
@@ -91,12 +120,7 @@ describe("CSRF protection", () => {
       const error = next.mock.calls[0]?.[0];
 
       expect(error).toBeDefined();
-
-      if (!error) {
-        continue;
-      }
-
       expect(error.statusCode).toBe(403);
-    }
-  });
+    },
+  );
 });

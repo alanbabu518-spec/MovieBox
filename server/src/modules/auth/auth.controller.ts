@@ -1,22 +1,17 @@
 import type { Request, Response } from "express";
 
 import { env } from "../../config/env.js";
-
 import {
   createAuthToken,
   requestMagicLink,
   verifyMagicLink,
 } from "./auth.service.js";
-
 import {
   authenticateWithGoogle,
   getGoogleAuthorizationUrl,
 } from "./google.service.js";
-
 import { emailAuthSchema } from "./auth.validator.js";
-
 import { prisma } from "../../config/database.js";
-
 import type { AuthenticatedRequest } from "../../shared/types/auth.js";
 
 const cookieOptions = {
@@ -27,15 +22,27 @@ const cookieOptions = {
   path: "/",
 };
 
-export const requestEmailLogin = async (
-  req: Request,
-  res: Response,
-) => {
-  const { email } =
-    emailAuthSchema.parse(req.body);
+const oauthStateCookieName = "moviebox_oauth_state";
 
-  const result =
-    await requestMagicLink(email);
+const oauthStateCookieOptions = {
+  httpOnly: true,
+  secure: env.nodeEnv === "production",
+  sameSite: "lax" as const,
+  maxAge: 5 * 60 * 1000,
+  path: "/api/auth/google/callback",
+};
+
+export const requestEmailLogin = async (req: Request, res: Response) => {
+  const parsed = emailAuthSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a valid email address",
+    });
+  }
+
+  const result = await requestMagicLink(parsed.data.email);
 
   return res.status(200).json({
     success: true,
@@ -43,113 +50,88 @@ export const requestEmailLogin = async (
   });
 };
 
-export const googleLogin = async (
-  _req: Request,
-  res: Response,
-) => {
-  const authorizationUrl =
-    getGoogleAuthorizationUrl();
+export const googleLogin = async (_req: Request, res: Response) => {
+  const { url, state } = await getGoogleAuthorizationUrl();
 
-  return res.redirect(
-    302,
-    authorizationUrl,
-  );
+  res.cookie(oauthStateCookieName, state, oauthStateCookieOptions);
+
+  return res.redirect(302, url);
 };
 
-export const googleCallback = async (
-  req: Request,
-  res: Response,
-) => {
+export const googleCallback = async (req: Request, res: Response) => {
   const code = req.query.code;
+  const state = req.query.state;
+  const stateCookie = req.cookies?.[oauthStateCookieName];
+
+  // Clear the state cookie regardless of callback validity.
+  res.clearCookie(oauthStateCookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: "lax",
+    path: "/api/auth/google/callback",
+  });
 
   if (
     typeof code !== "string" ||
-    !code
+    code.length === 0 ||
+    typeof state !== "string" ||
+    state.length === 0 ||
+    typeof stateCookie !== "string" ||
+    state !== stateCookie
   ) {
     return res.status(400).json({
       success: false,
-      message:
-        "Google authorization code is missing",
+      message: "Google OAuth state validation failed",
     });
   }
 
-  const result =
-    await authenticateWithGoogle(code);
+  const result = await authenticateWithGoogle(code, state);
+  const token = createAuthToken(result.user.id);
 
-  const token = createAuthToken(
-    result.user.id,
-  );
-
-  res.cookie(
-    env.cookieName,
-    token,
-    cookieOptions,
-  );
+  res.cookie(env.cookieName, token, cookieOptions);
 
   return res.redirect(env.clientUrl);
 };
 
-export const verifyEmailMagicLink =
-  async (
-    req: Request,
-    res: Response,
-  ) => {
-    const token = req.query.token;
+export const verifyEmailMagicLink = async (req: Request, res: Response) => {
+  const token = req.query.token;
 
-    if (
-      typeof token !== "string" ||
-      !token
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Authentication token is missing",
-      });
-    }
+  if (typeof token !== "string" || token.length === 0 || token.length > 2048) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid or missing authentication token",
+    });
+  }
 
-    const result =
-      await verifyMagicLink(token);
+  const result = await verifyMagicLink(token);
 
-    res.cookie(
-      env.cookieName,
-      result.token,
-      cookieOptions,
-    );
+  res.cookie(env.cookieName, result.token, cookieOptions);
 
-    return res.redirect(env.clientUrl);
-  };
+  return res.redirect(env.clientUrl);
+};
 
-export const getCurrentUser = async (
-  req: Request,
-  res: Response,
-) => {
-  const userId =
-    (req as AuthenticatedRequest)
-      .userId;
+export const getCurrentUser = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
 
   if (!userId) {
     return res.status(401).json({
       success: false,
-      message:
-        "Authentication required",
+      message: "Authentication required",
     });
   }
 
-  const user =
-    await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        emailVerified: true,
-        avatar: true,
-        profileCompleted: true,
-        createdAt: true,
-      },
-    });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      emailVerified: true,
+      avatar: true,
+      profileCompleted: true,
+      createdAt: true,
+    },
+  });
 
   if (!user) {
     return res.status(401).json({
@@ -160,30 +142,27 @@ export const getCurrentUser = async (
 
   return res.status(200).json({
     success: true,
-    data: {
-      user,
-    },
+    data: { user },
   });
 };
 
-export const logout = async (
-  _req: Request,
-  res: Response,
-) => {
-  res.clearCookie(
-    env.cookieName,
-    {
-      httpOnly: true,
-      secure:
-        env.nodeEnv === "production",
-      sameSite: "lax",
-      path: "/",
-    },
-  );
+export const logout = async (_req: Request, res: Response) => {
+  res.clearCookie(env.cookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+
+  res.clearCookie(oauthStateCookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: "lax",
+    path: "/api/auth/google/callback",
+  });
 
   return res.status(200).json({
     success: true,
-    message:
-      "Logged out successfully",
+    message: "Logged out successfully",
   });
 };

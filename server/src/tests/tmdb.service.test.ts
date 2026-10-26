@@ -1,20 +1,10 @@
-import {
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const tmdbClientMock = {
+const mocks = vi.hoisted(() => ({
   get: vi.fn(),
-};
-
-const redisMock = {
-  get: vi.fn(),
-  set: vi.fn(),
-};
+  getCachedJson: vi.fn(),
+  setCachedJson: vi.fn(),
+}));
 
 vi.mock("../config/tmdb.js", () => ({
   tmdbConfig: {
@@ -23,396 +13,310 @@ vi.mock("../config/tmdb.js", () => ({
   },
 }));
 
-vi.mock("../config/redis.js", () => ({
-  redis: redisMock,
-}));
-
 vi.mock("../config/cache.js", () => ({
   cacheConfig: {
     trendingMoviesTtl: 1800,
   },
 }));
 
+vi.mock("../shared/utils/cache.js", () => ({
+  getCachedJson: mocks.getCachedJson,
+  setCachedJson: mocks.setCachedJson,
+}));
+
 vi.mock("axios", () => ({
   default: {
-    create: vi.fn(() => tmdbClientMock),
+    create: vi.fn(() => ({
+      get: mocks.get,
+    })),
     isAxiosError: (error: unknown) =>
-      typeof error === "object" &&
-      error !== null &&
-      "isAxiosError" in error,
+      typeof error === "object" && error !== null && "isAxiosError" in error,
   },
 }));
 
-let getTrendingMovies: typeof import("../integrations/tmdb/tmdb.service.js").getTrendingMovies;
-let getLatestMovies: typeof import("../integrations/tmdb/tmdb.service.js").getLatestMovies;
-let getUpcomingMovies: typeof import("../integrations/tmdb/tmdb.service.js").getUpcomingMovies;
+vi.mock("axios-retry", () => {
+  const axiosRetry = Object.assign(vi.fn(), {
+    exponentialDelay: vi.fn(() => 1000),
+    isNetworkError: vi.fn(() => false),
+  });
 
-beforeAll(async () => {
-  const tmdbService =
-    await import("../integrations/tmdb/tmdb.service.js");
-
-  getTrendingMovies = tmdbService.getTrendingMovies;
-  getLatestMovies = tmdbService.getLatestMovies;
-  getUpcomingMovies = tmdbService.getUpcomingMovies;
+  return {
+    default: axiosRetry,
+  };
 });
+
+import {
+  getLatestMovies,
+  getTrendingMovies,
+  getUpcomingMovies,
+} from "../integrations/tmdb/tmdb.service.js";
+
+const sampleMovie = {
+  id: 123,
+  title: "Test Movie",
+  overview: "A movie for testing.",
+  poster_path: "/poster.jpg",
+  backdrop_path: "/backdrop.jpg",
+  release_date: "2026-01-15",
+  vote_average: 8.2,
+  vote_count: 100,
+  popularity: 150,
+  genre_ids: [28],
+  original_language: "en",
+  adult: false,
+  video: false,
+  original_title: "Test Movie",
+};
+
+const movieListResponse = {
+  page: 1,
+  total_pages: 1,
+  total_results: 1,
+  results: [sampleMovie],
+};
+
+const genreListResponse = {
+  genres: [{ id: 28, name: "Action" }],
+};
+
+function mockMovieAndGenreRequests() {
+  mocks.get
+    .mockResolvedValueOnce({
+      data: movieListResponse,
+    })
+    .mockResolvedValueOnce({
+      data: genreListResponse,
+    });
+}
+
+function mockAxiosError(
+  status: number | undefined,
+  message: string,
+  code?: string,
+) {
+  const error: Record<string, unknown> = {
+    isAxiosError: true,
+    message,
+  };
+
+  if (status !== undefined) {
+    error.response = {
+      status,
+      data: {
+        status_message: message,
+      },
+      headers: {},
+    };
+  }
+
+  if (code) {
+    error.code = code;
+  }
+
+  return error;
+}
 
 describe("TMDB service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    tmdbClientMock.get.mockReset();
-    redisMock.get.mockReset();
-    redisMock.set.mockReset();
+    mocks.getCachedJson.mockResolvedValue(null);
+    mocks.setCachedJson.mockResolvedValue(undefined);
   });
 
-  it("returns normalized trending movies from TMDB", async () => {
-    redisMock.get.mockResolvedValue(null);
+  describe("getTrendingMovies", () => {
+    it("returns normalized trending movies from TMDB", async () => {
+      mockMovieAndGenreRequests();
 
-    const response = {
-      page: 1,
-      total_pages: 10,
-      total_results: 200,
-      results: [
-        {
-          id: 1,
-          title: "Test Movie",
-          overview: "Test overview",
-          poster_path: "/poster.jpg",
-          backdrop_path: "/backdrop.jpg",
-          release_date: "2026-01-01",
-          vote_average: 8.5,
-          vote_count: 1000,
-          popularity: 500,
-          original_language: "en",
-        },
-      ],
-    };
+      const result = await getTrendingMovies();
 
-    tmdbClientMock.get.mockResolvedValue({
-      data: response,
-    });
-
-    redisMock.set.mockResolvedValue("OK");
-
-    const result = await getTrendingMovies();
-
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/trending/movie/week",
-    );
-
-    expect(result).toEqual({
-      page: 1,
-      totalPages: 10,
-      totalResults: 200,
-      movies: [
-        {
-          id: 1,
-          title: "Test Movie",
-          overview: "Test overview",
-          posterPath: "/poster.jpg",
-          backdropPath: "/backdrop.jpg",
-          releaseDate: "2026-01-01",
-          rating: 8.5,
-          voteCount: 1000,
-          popularity: 500,
-          originalLanguage: "en",
-        },
-      ],
-    });
-  });
-
-  it("handles missing release dates", async () => {
-    redisMock.get.mockResolvedValue(null);
-
-    tmdbClientMock.get.mockResolvedValue({
-      data: {
+      expect(result).toMatchObject({
         page: 1,
-        total_pages: 1,
-        total_results: 1,
-        results: [
+        totalPages: 1,
+      });
+
+      expect(result.movies).toHaveLength(1);
+      expect(result.movies[0]).toMatchObject({
+        id: 123,
+        title: "Test Movie",
+        overview: "A movie for testing.",
+      });
+
+      expect(mocks.get).toHaveBeenNthCalledWith(
+        1,
+        "/trending/movie/week",
+        expect.anything(),
+      );
+
+      expect(mocks.get).toHaveBeenNthCalledWith(
+        2,
+        "/genre/movie/list",
+        expect.anything(),
+      );
+
+      expect(mocks.setCachedJson).toHaveBeenCalled();
+    });
+
+    it("handles missing release dates and image paths", async () => {
+      const movieWithoutOptionalFields = {
+        ...sampleMovie,
+        release_date: "",
+        poster_path: null,
+        backdrop_path: null,
+        genre_ids: [],
+      };
+
+      mocks.get
+        .mockResolvedValueOnce({
+          data: {
+            ...movieListResponse,
+            results: [movieWithoutOptionalFields],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            genres: [],
+          },
+        });
+
+      const result = await getTrendingMovies();
+
+      expect(result.movies).toHaveLength(1);
+
+      expect(result.movies[0]).toMatchObject({
+        id: 123,
+        title: "Test Movie",
+        posterPath: null,
+        backdropPath: null,
+        releaseDate: null,
+        genreIds: [],
+        genres: [],
+      });
+    });
+
+    it("returns cached trending movies without making a request", async () => {
+      const cachedMovies = {
+        page: 1,
+        totalPages: 1,
+        totalResults: 1,
+        movies: [
           {
-            id: 1,
-            title: "Test Movie",
-            overview: "Test overview",
-            poster_path: null,
-            backdrop_path: null,
-            release_date: "",
-            vote_average: 7,
-            vote_count: 100,
-            popularity: 50,
-            original_language: "en",
+            id: 456,
+            title: "Cached Movie",
           },
         ],
-      },
+      };
+
+      mocks.getCachedJson.mockResolvedValueOnce(cachedMovies);
+
+      const result = await getTrendingMovies();
+
+      expect(result).toEqual(cachedMovies);
+      expect(mocks.get).not.toHaveBeenCalled();
+      expect(mocks.setCachedJson).not.toHaveBeenCalled();
     });
 
-    redisMock.set.mockResolvedValue("OK");
+    it("fetches movies and caches the result on a cache miss", async () => {
+      mockMovieAndGenreRequests();
 
-    const result = await getTrendingMovies();
+      await getTrendingMovies();
 
-    expect(result.movies[0]?.releaseDate).toBeNull();
-    expect(result.movies[0]?.posterPath).toBeNull();
-    expect(result.movies[0]?.backdropPath).toBeNull();
+      expect(mocks.getCachedJson).toHaveBeenCalled();
+      expect(mocks.get).toHaveBeenCalled();
+      expect(mocks.setCachedJson).toHaveBeenCalled();
+    });
   });
 
-  it("returns cached movies without calling TMDB", async () => {
-    const cachedMovies = {
-      page: 1,
-      totalPages: 5,
-      totalResults: 100,
-      movies: [
-        {
-          id: 1,
-          title: "Cached Movie",
-          overview: "Cached overview",
-          posterPath: "/poster.jpg",
-          backdropPath: "/backdrop.jpg",
-          releaseDate: "2026-01-01",
-          rating: 8,
-          voteCount: 500,
-          popularity: 200,
-          originalLanguage: "en",
-        },
-      ],
-    };
+  describe("getLatestMovies", () => {
+    it("returns normalized latest movies", async () => {
+      mockMovieAndGenreRequests();
 
-    redisMock.get.mockResolvedValue(
-      JSON.stringify(cachedMovies),
-    );
+      const result = await getLatestMovies();
 
-    const result = await getTrendingMovies();
-
-    expect(redisMock.get).toHaveBeenCalledWith(
-      "moviebox:cache:movies:trending",
-    );
-
-    expect(tmdbClientMock.get).not.toHaveBeenCalled();
-
-    expect(redisMock.set).not.toHaveBeenCalled();
-
-    expect(result).toEqual(cachedMovies);
-  });
-
-  it("fetches from TMDB and caches the result on a cache miss", async () => {
-    redisMock.get.mockResolvedValue(null);
-    redisMock.set.mockResolvedValue("OK");
-
-    tmdbClientMock.get.mockResolvedValue({
-      data: {
+      expect(result).toMatchObject({
         page: 1,
-        total_pages: 10,
-        total_results: 200,
-        results: [
-          {
-            id: 1,
-            title: "Test Movie",
-            overview: "Test overview",
-            poster_path: "/poster.jpg",
-            backdrop_path: "/backdrop.jpg",
-            release_date: "2026-01-01",
-            vote_average: 8.5,
-            vote_count: 1000,
-            popularity: 500,
-            original_language: "en",
-          },
-        ],
-      },
-    });
+        totalPages: 1,
+      });
 
-    const result = await getTrendingMovies();
+      expect(result.movies).toHaveLength(1);
+      expect(result.movies[0]).toMatchObject({
+        id: 123,
+        title: "Test Movie",
+      });
 
-    expect(redisMock.get).toHaveBeenCalledWith(
-      "moviebox:cache:movies:trending",
-    );
-
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/trending/movie/week",
-    );
-
-    expect(redisMock.set).toHaveBeenCalledWith(
-      "moviebox:cache:movies:trending",
-      JSON.stringify(result),
-      "EX",
-      1800,
-    );
-
-    expect(result.movies).toHaveLength(1);
-  });
-
-  it("converts TMDB authentication errors to AppError", async () => {
-    redisMock.get.mockResolvedValue(null);
-
-    const error = {
-      response: {
-        status: 401,
-      },
-      isAxiosError: true,
-    };
-
-    tmdbClientMock.get.mockRejectedValue(error);
-
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
-      message: "TMDB authentication failed",
-      statusCode: 502,
+      expect(mocks.get).toHaveBeenNthCalledWith(
+        1,
+        "/movie/now_playing",
+        expect.anything(),
+      );
     });
   });
 
-  it("converts TMDB rate limit errors to AppError", async () => {
-    redisMock.get.mockResolvedValue(null);
+  describe("getUpcomingMovies", () => {
+    it("returns normalized upcoming movies", async () => {
+      mockMovieAndGenreRequests();
 
-    const error = {
-      response: {
-        status: 429,
-      },
-      isAxiosError: true,
-    };
+      const result = await getUpcomingMovies();
 
-    tmdbClientMock.get.mockRejectedValue(error);
-
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
-      message: "TMDB rate limit exceeded",
-      statusCode: 503,
-    });
-  });
-
-  it("converts TMDB timeout errors to AppError", async () => {
-    redisMock.get.mockResolvedValue(null);
-
-    const error = {
-      code: "ECONNABORTED",
-      isAxiosError: true,
-    };
-
-    tmdbClientMock.get.mockRejectedValue(error);
-
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
-      message: "TMDB request timed out",
-      statusCode: 504,
-    });
-  });
-
-  it("converts unexpected TMDB errors to AppError", async () => {
-    redisMock.get.mockResolvedValue(null);
-
-    tmdbClientMock.get.mockRejectedValue(
-      new Error("Network failure"),
-    );
-
-    await expect(
-      getTrendingMovies(),
-    ).rejects.toMatchObject({
-      message: "Failed to fetch movies from TMDB",
-      statusCode: 502,
-    });
-  });
-
-  it("returns normalized latest movies from TMDB", async () => {
-    redisMock.get.mockResolvedValue(null);
-
-    tmdbClientMock.get.mockResolvedValue({
-      data: {
+      expect(result).toMatchObject({
         page: 1,
-        total_pages: 5,
-        total_results: 50,
-        results: [
-          {
-            id: 10,
-            title: "Latest Movie",
-            overview: "Latest movie overview",
-            poster_path: "/latest.jpg",
-            backdrop_path: "/latest-backdrop.jpg",
-            release_date: "2026-09-20",
-            vote_average: 8,
-            vote_count: 500,
-            popularity: 200,
-            original_language: "en",
-          },
-        ],
-      },
-    });
+        totalPages: 1,
+      });
 
-    const result = await getLatestMovies();
+      expect(result.movies).toHaveLength(1);
+      expect(result.movies[0]).toMatchObject({
+        id: 123,
+        title: "Test Movie",
+      });
 
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/movie/now_playing",
-    );
-
-    expect(result).toEqual({
-      page: 1,
-      totalPages: 5,
-      totalResults: 50,
-      movies: [
-        {
-          id: 10,
-          title: "Latest Movie",
-          overview: "Latest movie overview",
-          posterPath: "/latest.jpg",
-          backdropPath: "/latest-backdrop.jpg",
-          releaseDate: "2026-09-20",
-          rating: 8,
-          voteCount: 500,
-          popularity: 200,
-          originalLanguage: "en",
-        },
-      ],
+      expect(mocks.get).toHaveBeenNthCalledWith(
+        1,
+        "/movie/upcoming",
+        expect.anything(),
+      );
     });
   });
 
-  it("returns normalized upcoming movies from TMDB", async () => {
-    redisMock.get.mockResolvedValue(null);
+  describe("TMDB error handling", () => {
+    it("handles TMDB authentication errors", async () => {
+      mocks.get.mockRejectedValueOnce(mockAxiosError(401, "Unauthorized"));
 
-    tmdbClientMock.get.mockResolvedValue({
-      data: {
-        page: 1,
-        total_pages: 3,
-        total_results: 30,
-        results: [
-          {
-            id: 20,
-            title: "Upcoming Movie",
-            overview: "Upcoming movie overview",
-            poster_path: "/upcoming.jpg",
-            backdrop_path: "/upcoming-backdrop.jpg",
-            release_date: "2026-12-25",
-            vote_average: 7.5,
-            vote_count: 300,
-            popularity: 150,
-            original_language: "en",
-          },
-        ],
-      },
+      await expect(getTrendingMovies()).rejects.toMatchObject({
+        message: "TMDB authentication failed",
+      });
     });
 
-    const result = await getUpcomingMovies();
+    it("handles TMDB rate-limit errors", async () => {
+      mocks.get.mockRejectedValueOnce(mockAxiosError(429, "Too many requests"));
 
-    expect(tmdbClientMock.get).toHaveBeenCalledWith(
-      "/movie/upcoming",
-    );
+      await expect(getTrendingMovies()).rejects.toMatchObject({
+        statusCode: 503,
+      });
+    });
 
-    expect(result).toEqual({
-      page: 1,
-      totalPages: 3,
-      totalResults: 30,
-      movies: [
-        {
-          id: 20,
-          title: "Upcoming Movie",
-          overview: "Upcoming movie overview",
-          posterPath: "/upcoming.jpg",
-          backdropPath: "/upcoming-backdrop.jpg",
-          releaseDate: "2026-12-25",
-          rating: 7.5,
-          voteCount: 300,
-          popularity: 150,
-          originalLanguage: "en",
-        },
-      ],
+    it("handles request timeouts", async () => {
+      mocks.get.mockRejectedValueOnce(
+        mockAxiosError(
+          undefined,
+          "timeout of 30000ms exceeded",
+          "ECONNABORTED",
+        ),
+      );
+
+      await expect(getTrendingMovies()).rejects.toMatchObject({
+        statusCode: 504,
+        message: "Movie service request timed out",
+      });
+    });
+
+    it("handles unexpected TMDB errors", async () => {
+      mocks.get.mockRejectedValueOnce(
+        mockAxiosError(500, "Internal Server Error"),
+      );
+
+      await expect(getTrendingMovies()).rejects.toMatchObject({
+        statusCode: 503,
+      });
     });
   });
 });

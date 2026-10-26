@@ -11,6 +11,7 @@ model User {
   id               String   @id @default(uuid())
   name             String
   email            String   @unique
+  role             String   @default("USER")
   authProvider     String   @default("email")
   providerId       String?
   avatar           String   @default("avatar-1")
@@ -25,19 +26,19 @@ model User {
   reviews      Review[]
   watchHistory WatchHistory[]
 
-  @@index([email])
   @@index([authProvider, providerId])
+  @@index([role])
 }
 
 model Movie {
-  id           String    @id @default(uuid())
-  tmdbId       Int       @unique
+  id           String   @id @default(uuid())
+  tmdbId       Int      @unique
   title        String
   posterPath   String?
   backdropPath String?
   releaseDate  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   watchlistedBy Watchlist[]
   favoritedBy   Favorite[]
@@ -56,7 +57,6 @@ model Watchlist {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([userId, movieId])
-  @@index([userId])
   @@index([movieId])
 }
 
@@ -70,7 +70,6 @@ model Favorite {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([userId, movieId])
-  @@index([userId])
   @@index([movieId])
 }
 
@@ -86,7 +85,6 @@ model Rating {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([userId, movieId])
-  @@index([userId])
   @@index([movieId])
 }
 
@@ -102,8 +100,8 @@ model Review {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([movieId])
+  @@index([userId, createdAt])
+  @@index([movieId, createdAt])
 }
 
 model WatchHistory {

@@ -2,25 +2,17 @@ import "dotenv/config";
 import type { SignOptions } from "jsonwebtoken";
 
 const port = Number(process.env.PORT);
-
 const jwtSecret = process.env.JWT_SECRET;
-
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN;
-
 const redisUrl = process.env.REDIS_URL;
-
 const clientUrl = process.env.CLIENT_URL;
-
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
-
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-
 const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL;
-
 const resendApiKey = process.env.RESEND_API_KEY;
 
-if (!Number.isInteger(port) || port <= 0) {
-  throw new Error("Invalid PORT environment variable");
+if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+  throw new Error("PORT must be a valid port number");
 }
 
 if (!jwtSecret || jwtSecret.length < 32) {
@@ -39,6 +31,20 @@ if (!clientUrl) {
   throw new Error("CLIENT_URL is required");
 }
 
+try {
+  const parsedClientUrl = new URL(clientUrl);
+
+  if (
+    !["http:", "https:"].includes(parsedClientUrl.protocol) ||
+    parsedClientUrl.username ||
+    parsedClientUrl.password
+  ) {
+    throw new Error();
+  }
+} catch {
+  throw new Error("CLIENT_URL must be a valid HTTP or HTTPS URL");
+}
+
 if (!googleClientId) {
   throw new Error("GOOGLE_CLIENT_ID is required");
 }
@@ -49,6 +55,20 @@ if (!googleClientSecret) {
 
 if (!googleCallbackUrl) {
   throw new Error("GOOGLE_CALLBACK_URL is required");
+}
+
+try {
+  const parsedCallbackUrl = new URL(googleCallbackUrl);
+
+  if (
+    !["http:", "https:"].includes(parsedCallbackUrl.protocol) ||
+    parsedCallbackUrl.username ||
+    parsedCallbackUrl.password
+  ) {
+    throw new Error();
+  }
+} catch {
+  throw new Error("GOOGLE_CALLBACK_URL must be a valid HTTP or HTTPS URL");
 }
 
 if (!resendApiKey) {

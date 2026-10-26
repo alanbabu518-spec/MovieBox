@@ -1,361 +1,176 @@
-import {
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-import { AppError } from "../shared/utils/appError";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const prismaMock = {
-  user: {
-    findUnique: vi.fn(),
-    create: vi.fn(),
-  },
-};
-
-const pendingRegistrationMock = {
-  createPendingRegistration: vi.fn(),
-  deletePendingRegistration: vi.fn(),
-  getPendingRegistration: vi.fn(),
-  verifyPendingOTP: vi.fn(),
-};
-
-const emailMock = {
-  sendVerificationEmail: vi.fn(),
-};
-
-vi.mock("../config/database.js", () => ({
-  prisma: prismaMock,
+const mocks = vi.hoisted(() => ({
+  findUnique: vi.fn(),
+  create: vi.fn(),
+  sendMagicLinkEmail: vi.fn(),
+  createMagicLinkToken: vi.fn(),
+  consumeMagicLinkToken: vi.fn(),
+  sign: vi.fn(),
 }));
 
-vi.mock("../modules/auth/pendingRegistration.service.js", () => ({
-  createPendingRegistration:
-    pendingRegistrationMock.createPendingRegistration,
-  deletePendingRegistration:
-    pendingRegistrationMock.deletePendingRegistration,
-  getPendingRegistration:
-    pendingRegistrationMock.getPendingRegistration,
-  verifyPendingOTP:
-    pendingRegistrationMock.verifyPendingOTP,
+vi.mock("../config/database.js", () => ({
+  prisma: {
+    user: {
+      findUnique: mocks.findUnique,
+      create: mocks.create,
+    },
+  },
+}));
+
+vi.mock("../config/env.js", () => ({
+  env: {
+    jwtSecret: "test-secret",
+    jwtExpiresIn: "1h",
+  },
 }));
 
 vi.mock("../email/email.service.js", () => ({
-  sendVerificationEmail:
-    emailMock.sendVerificationEmail,
+  sendMagicLinkEmail: mocks.sendMagicLinkEmail,
 }));
 
-let registerUser: typeof import("../modules/auth/auth.service.js").registerUser;
-let verifyEmailOTP: typeof import("../modules/auth/auth.service.js").verifyEmailOTP;
-let loginUser: typeof import("../modules/auth/auth.service.js").loginUser;
+vi.mock("../modules/auth/magicLink.service.js", () => ({
+  createMagicLinkToken: mocks.createMagicLinkToken,
+  consumeMagicLinkToken: mocks.consumeMagicLinkToken,
+}));
 
-beforeAll(async () => {
-  const authService = await import("../modules/auth/auth.service.js");
+vi.mock("jsonwebtoken", () => ({
+  default: {
+    sign: mocks.sign,
+  },
+}));
 
-  registerUser = authService.registerUser;
-  verifyEmailOTP = authService.verifyEmailOTP;
-  loginUser = authService.loginUser;
-});
+import {
+  createAuthToken,
+  requestMagicLink,
+  verifyMagicLink,
+} from "../modules/auth/auth.service.js";
 
 describe("auth service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    prismaMock.user.findUnique.mockReset();
-    prismaMock.user.create.mockReset();
+    mocks.findUnique.mockResolvedValue(null);
+    mocks.create.mockResolvedValue({
+      id: "user-1",
+      name: "alan",
+      email: "alan@example.com",
+      emailVerified: true,
+      avatar: null,
+      profileCompleted: false,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
 
-    pendingRegistrationMock.createPendingRegistration.mockReset();
-    pendingRegistrationMock.deletePendingRegistration.mockReset();
-    pendingRegistrationMock.getPendingRegistration.mockReset();
-    pendingRegistrationMock.verifyPendingOTP.mockReset();
+    mocks.createMagicLinkToken.mockResolvedValue("magic-token");
+    mocks.consumeMagicLinkToken.mockResolvedValue({
+      email: "alan@example.com",
+    });
 
-    emailMock.sendVerificationEmail.mockReset();
+    mocks.sendMagicLinkEmail.mockResolvedValue(undefined);
+    mocks.sign.mockReturnValue("jwt-token");
   });
 
-  describe("registerUser", () => {
-    it("creates a pending registration instead of a database user", async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
+  describe("requestMagicLink", () => {
+    it("normalizes the email and sends a magic link", async () => {
+      const result = await requestMagicLink("  ALAN@EXAMPLE.COM  ");
 
-      pendingRegistrationMock.getPendingRegistration.mockRejectedValue(
-        new AppError("OTP expired or registration not found", 400),
-      );
-
-      pendingRegistrationMock.createPendingRegistration.mockResolvedValue(
-        undefined,
-      );
-
-      emailMock.sendVerificationEmail.mockResolvedValue(undefined);
-
-      const result = await registerUser({
-        name: "Alan",
-        email: "alan@example.com",
-        password: "password123",
+      expect(mocks.findUnique).toHaveBeenCalledWith({
+        where: { email: "alan@example.com" },
       });
 
-      expect(result.email).toBe("alan@example.com");
-
-      expect(
-        pendingRegistrationMock.createPendingRegistration,
-      ).toHaveBeenCalledTimes(1);
-
-      expect(emailMock.sendVerificationEmail).toHaveBeenCalledTimes(1);
-
-      expect(prismaMock.user.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects an already registered email", async () => {
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "user-1",
-        email: "alan@example.com",
-      });
-
-      await expect(
-        registerUser({
-          name: "Alan",
-          email: "alan@example.com",
-          password: "password123",
-        }),
-      ).rejects.toThrow("Email already registered");
-
-      expect(
-        pendingRegistrationMock.createPendingRegistration,
-      ).not.toHaveBeenCalled();
-    });
-
-    it("rejects when an OTP is already pending", async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
-
-      pendingRegistrationMock.getPendingRegistration.mockResolvedValue({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash: "hashed-password",
-        otpHash: "hash",
-        attempts: 0,
-      });
-
-      await expect(
-        registerUser({
-          name: "Alan",
-          email: "alan@example.com",
-          password: "password123",
-        }),
-      ).rejects.toThrow(
-        "A verification OTP was already sent. Please use resend OTP.",
-      );
-
-      expect(
-        pendingRegistrationMock.createPendingRegistration,
-      ).not.toHaveBeenCalled();
-    });
-
-    it("does not store the raw password", async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
-
-      pendingRegistrationMock.getPendingRegistration.mockRejectedValue(
-        new AppError("OTP expired or registration not found", 400),
-      );
-
-      pendingRegistrationMock.createPendingRegistration.mockResolvedValue(
-        undefined,
-      );
-
-      emailMock.sendVerificationEmail.mockResolvedValue(undefined);
-
-      await registerUser({
-        name: "Alan",
-        email: "alan@example.com",
-        password: "password123",
-      });
-
-      const registration =
-        pendingRegistrationMock.createPendingRegistration.mock.calls[0]?.[0];
-
-      expect(registration).toBeDefined();
-
-      if (!registration) {
-        return;
-      }
-
-      expect(registration.passwordHash).not.toBe("password123");
-      expect(registration.passwordHash).toMatch(/^\$2[aby]\$/);
-    });
-
-    it("propagates Redis failures during registration", async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
-
-      pendingRegistrationMock.getPendingRegistration.mockRejectedValue(
-        new Error("Redis unavailable"),
-      );
-
-      await expect(
-        registerUser({
-          name: "Test User",
-          email: "test@example.com",
-          password: "password123",
-        }),
-      ).rejects.toThrow("Redis unavailable");
-
-      expect(
-        pendingRegistrationMock.createPendingRegistration,
-      ).not.toHaveBeenCalled();
-
-      expect(emailMock.sendVerificationEmail).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("verifyEmailOTP", () => {
-    it("creates the database user only after successful OTP verification", async () => {
-      pendingRegistrationMock.verifyPendingOTP.mockResolvedValue({
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash:
-          "$2b$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu",
-        otpHash: "hash",
-        attempts: 0,
-      });
-
-      prismaMock.user.create.mockResolvedValue({
-        id: "user-1",
-        name: "Alan",
-        email: "alan@example.com",
-        emailVerified: true,
-        createdAt: new Date(),
-      });
-
-      const result = await verifyEmailOTP({
-        email: "alan@example.com",
-        otp: "123456",
-      });
-
-      expect(
-        pendingRegistrationMock.verifyPendingOTP,
-      ).toHaveBeenCalledWith(
+      expect(mocks.createMagicLinkToken).toHaveBeenCalledWith(
         "alan@example.com",
-        "123456",
       );
 
-      expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
-
-      expect(prismaMock.user.create).toHaveBeenCalledWith({
-        data: {
-          name: "Alan",
-          email: "alan@example.com",
-          passwordHash:
-            "$2b$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu",
-          emailVerified: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          emailVerified: true,
-          createdAt: true,
-        },
+      expect(mocks.sendMagicLinkEmail).toHaveBeenCalledWith({
+        email: "alan@example.com",
+        name: "alan",
+        token: "magic-token",
       });
 
-      expect(
-        pendingRegistrationMock.deletePendingRegistration,
-      ).toHaveBeenCalledWith("alan@example.com");
-
-      expect(result.user.emailVerified).toBe(true);
+      expect(result.message).toBe(
+        "If the email is valid, a sign-in link has been sent.",
+      );
     });
 
-    it("does not create a user when OTP verification fails", async () => {
-      pendingRegistrationMock.verifyPendingOTP.mockRejectedValue(
-        new Error("Invalid OTP"),
-      );
+    it("uses the existing user's name when available", async () => {
+      mocks.findUnique.mockResolvedValue({
+        id: "user-1",
+        name: "Alan",
+        email: "alan@example.com",
+      });
 
-      await expect(
-        verifyEmailOTP({
-          email: "alan@example.com",
-          otp: "999999",
-        }),
-      ).rejects.toThrow("Invalid OTP");
+      await requestMagicLink("alan@example.com");
 
-      expect(prismaMock.user.create).not.toHaveBeenCalled();
-
-      expect(
-        pendingRegistrationMock.deletePendingRegistration,
-      ).not.toHaveBeenCalled();
+      expect(mocks.sendMagicLinkEmail).toHaveBeenCalledWith({
+        email: "alan@example.com",
+        name: "Alan",
+        token: "magic-token",
+      });
     });
   });
 
-  describe("loginUser", () => {
-    it("rejects a non-existent user", async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
+  describe("createAuthToken", () => {
+    it("creates a JWT for the user", () => {
+      const token = createAuthToken("user-1");
 
-      await expect(
-        loginUser({
-          email: "unknown@example.com",
-          password: "password123",
-        }),
-      ).rejects.toThrow("Invalid email or password");
-    });
-
-    it("rejects an incorrect password", async () => {
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "user-1",
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash:
-          "$2b$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuu",
-        emailVerified: true,
-      });
-
-      await expect(
-        loginUser({
-          email: "alan@example.com",
-          password: "wrong-password",
-        }),
-      ).rejects.toThrow("Invalid email or password");
-    });
-
-    it("rejects an unverified user", async () => {
-      const bcrypt = await import("bcryptjs");
-
-      const passwordHash = await bcrypt.hash("password123", 12);
-
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "user-1",
-        name: "Alan",
-        email: "alan@example.com",
-        passwordHash,
-        emailVerified: false,
-      });
-
-      await expect(
-        loginUser({
-          email: "alan@example.com",
-          password: "password123",
-        }),
-      ).rejects.toThrow(
-        "Please verify your email before logging in",
+      expect(mocks.sign).toHaveBeenCalledWith(
+        { userId: "user-1" },
+        "test-secret",
+        {
+          algorithm: "HS256",
+          expiresIn: "1h",
+        },
       );
+
+      expect(token).toBe("jwt-token");
+    });
+  });
+
+  describe("verifyMagicLink", () => {
+    it("rejects an invalid or expired magic link", async () => {
+      mocks.consumeMagicLinkToken.mockResolvedValue(null);
+
+      await expect(verifyMagicLink("invalid-token")).rejects.toThrow(
+        "This sign-in link is invalid or has expired.",
+      );
+
+      expect(mocks.create).not.toHaveBeenCalled();
     });
 
-    it("logs in a user with the correct password", async () => {
-      const bcrypt = await import("bcryptjs");
+    it("creates a user after successful verification", async () => {
+      const result = await verifyMagicLink("magic-token");
 
-      const passwordHash = await bcrypt.hash("password123", 12);
+      expect(mocks.create).toHaveBeenCalledWith({
+        data: {
+          name: "alan",
+          email: "alan@example.com",
+          authProvider: "email",
+          emailVerified: true,
+          profileCompleted: false,
+        },
+      });
 
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "user-1",
+      expect(result.user.email).toBe("alan@example.com");
+      expect(result.token).toBe("jwt-token");
+    });
+
+    it("does not create another user when the email already exists", async () => {
+      mocks.findUnique.mockResolvedValue({
+        id: "existing-user",
         name: "Alan",
         email: "alan@example.com",
-        passwordHash,
         emailVerified: true,
-        createdAt: new Date(),
+        avatar: null,
+        profileCompleted: true,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
       });
 
-      const result = await loginUser({
-        email: "alan@example.com",
-        password: "password123",
-      });
+      const result = await verifyMagicLink("magic-token");
 
-      expect(result.user.id).toBe("user-1");
-      expect(result.user.email).toBe("alan@example.com");
-      expect(result.token).toBeTypeOf("string");
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(result.user.id).toBe("existing-user");
+      expect(result.token).toBe("jwt-token");
     });
   });
 });

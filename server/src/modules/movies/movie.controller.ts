@@ -28,9 +28,9 @@ import {
 
 import { AppError } from "../../shared/utils/appError.js";
 
-function getMovieFilters(
-  req: Request,
-) {
+const currentYear = new Date().getFullYear();
+
+function getMovieFilters(req: Request) {
   const params: {
     genre?: string;
     language?: string;
@@ -39,46 +39,83 @@ function getMovieFilters(
     page?: number;
   } = {};
 
-  if (
-    typeof req.query.genre === "string"
-  ) {
-    params.genre = req.query.genre;
+  const { genre, language, year, minRating, page } =
+    req.query;
+
+  if (genre !== undefined) {
+    if (
+      typeof genre !== "string" ||
+      !/^\d{1,3}$/.test(genre) ||
+      Number(genre) < 1
+    ) {
+      throw new AppError("Invalid genre filter", 400);
+    }
+
+    params.genre = genre;
   }
 
-  if (
-    typeof req.query.language === "string"
-  ) {
-    params.language =
-      req.query.language;
+  if (language !== undefined) {
+    if (
+      typeof language !== "string" ||
+      !/^[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?$/.test(language)
+    ) {
+      throw new AppError("Invalid language filter", 400);
+    }
+
+    params.language = language;
   }
 
-  if (
-    typeof req.query.year === "string"
-  ) {
-    params.year = req.query.year;
+  if (year !== undefined) {
+    if (
+      typeof year !== "string" ||
+      !/^\d{4}$/.test(year) ||
+      Number(year) < 1888 ||
+      Number(year) > currentYear + 5
+    ) {
+      throw new AppError("Invalid year filter", 400);
+    }
+
+    params.year = year;
   }
 
-  if (
-    typeof req.query.minRating ===
-    "string"
-  ) {
-    params.minRating =
-      req.query.minRating;
+  if (minRating !== undefined) {
+    if (
+      typeof minRating !== "string" ||
+      !/^(?:10(?:\.0)?|[0-9](?:\.\d{1,2})?)$/.test(minRating) ||
+      Number(minRating) < 0 ||
+      Number(minRating) > 10
+    ) {
+      throw new AppError(
+        "Minimum rating must be between 0 and 10",
+        400,
+      );
+    }
+
+    params.minRating = minRating;
   }
 
-  if (
-    typeof req.query.page === "string"
-  ) {
-    const page = Number(
-      req.query.page,
-    );
+  if (page !== undefined) {
+    if (
+      typeof page !== "string" ||
+      !/^\d+$/.test(page)
+    ) {
+      throw new AppError("Invalid page number", 400);
+    }
+
+    const parsedPage = Number(page);
 
     if (
-      Number.isInteger(page) &&
-      page > 0
+      !Number.isSafeInteger(parsedPage) ||
+      parsedPage < 1 ||
+      parsedPage > 500
     ) {
-      params.page = page;
+      throw new AppError(
+        "Page must be between 1 and 500",
+        400,
+      );
     }
+
+    params.page = parsedPage;
   }
 
   return params;
@@ -88,11 +125,8 @@ export const getTrending = async (
   req: Request,
   res: Response,
 ) => {
-  const filters =
-    getMovieFilters(req);
-
-  const movies =
-    await getTrendingMovies(filters);
+  const filters = getMovieFilters(req);
+  const movies = await getTrendingMovies(filters);
 
   res.status(200).json({
     success: true,
@@ -116,11 +150,8 @@ export const getPopular = async (
   req: Request,
   res: Response,
 ) => {
-  const filters =
-    getMovieFilters(req);
-
-  const movies =
-    await getPopularMovies(filters);
+  const filters = getMovieFilters(req);
+  const movies = await getPopularMovies(filters);
 
   res.status(200).json({
     success: true,
@@ -132,11 +163,8 @@ export const getUpcoming = async (
   req: Request,
   res: Response,
 ) => {
-  const filters =
-    getMovieFilters(req);
-
-  const movies =
-    await getUpcomingMovies(filters);
+  const filters = getMovieFilters(req);
+  const movies = await getUpcomingMovies(filters);
 
   res.status(200).json({
     success: true,
@@ -148,13 +176,8 @@ export const search = async (
   req: Request,
   res: Response,
 ) => {
-  const { query, page } =
-    searchMoviesSchema.parse(req.query);
-
-  const movies = await searchMovies(
-    query,
-    page,
-  );
+  const { query, page } = searchMoviesSchema.parse(req.query);
+  const movies = await searchMovies(query, page);
 
   res.status(200).json({
     success: true,
@@ -167,14 +190,9 @@ export const autocomplete = (
   res: Response,
 ) => {
   const { query, limit } =
-    autocompleteMoviesSchema.parse(
-      req.query,
-    );
+    autocompleteMoviesSchema.parse(req.query);
 
-  const suggestions = getMovieSuggestions(
-    query,
-    limit,
-  );
+  const suggestions = getMovieSuggestions(query, limit);
 
   res.status(200).json({
     success: true,
@@ -186,8 +204,7 @@ export const ingestCatalog = async (
   _req: Request,
   res: Response,
 ) => {
-  const result =
-    await ingestMovieCatalog(5);
+  const result = await ingestMovieCatalog(5);
 
   res.status(200).json({
     success: true,
@@ -195,26 +212,30 @@ export const ingestCatalog = async (
   });
 };
 
+function getValidMovieId(req: Request): number {
+  const rawId = req.params.tmdbId;
+
+  if (
+    typeof rawId !== "string" ||
+    !/^[1-9]\d*$/.test(rawId)
+  ) {
+    throw new AppError("Invalid movie ID", 400);
+  }
+
+  const tmdbId = Number(rawId);
+
+  if (!Number.isSafeInteger(tmdbId)) {
+    throw new AppError("Invalid movie ID", 400);
+  }
+
+  return tmdbId;
+}
+
 export const getDetails = async (
   req: Request,
   res: Response,
 ) => {
-  const tmdbId = Number(
-    req.params.tmdbId,
-  );
-
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
-  }
-
-  const movie =
-    await getMovieDetails(tmdbId);
+  const movie = await getMovieDetails(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -226,22 +247,7 @@ export const getCredits = async (
   req: Request,
   res: Response,
 ) => {
-  const tmdbId = Number(
-    req.params.tmdbId,
-  );
-
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
-  }
-
-  const credits =
-    await getMovieCredits(tmdbId);
+  const credits = await getMovieCredits(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -253,22 +259,7 @@ export const getVideos = async (
   req: Request,
   res: Response,
 ) => {
-  const tmdbId = Number(
-    req.params.tmdbId,
-  );
-
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
-  }
-
-  const videos =
-    await getMovieVideos(tmdbId);
+  const videos = await getMovieVideos(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -280,22 +271,7 @@ export const getImages = async (
   req: Request,
   res: Response,
 ) => {
-  const tmdbId = Number(
-    req.params.tmdbId,
-  );
-
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
-  }
-
-  const images =
-    await getMovieImages(tmdbId);
+  const images = await getMovieImages(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -307,22 +283,7 @@ export const getSimilar = async (
   req: Request,
   res: Response,
 ) => {
-  const tmdbId = Number(
-    req.params.tmdbId,
-  );
-
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
-  }
-
-  const movies =
-    await getSimilarMovies(tmdbId);
+  const movies = await getSimilarMovies(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -330,45 +291,26 @@ export const getSimilar = async (
   });
 };
 
-export const getWatchProviders =
-  async (
-    req: Request,
-    res: Response,
-  ) => {
-    const tmdbId = Number(
-      req.params.tmdbId,
-    );
+export const getWatchProviders = async (
+  req: Request,
+  res: Response,
+) => {
+  const providers = await getMovieWatchProviders(
+    getValidMovieId(req),
+  );
 
-    if (
-      !Number.isInteger(tmdbId) ||
-      tmdbId <= 0
-    ) {
-      throw new AppError(
-        "Invalid movie ID",
-        400,
-      );
-    }
-
-    const providers =
-      await getMovieWatchProviders(
-        tmdbId,
-      );
-
-    res.status(200).json({
-      success: true,
-      data: providers,
-    });
-  };
+  res.status(200).json({
+    success: true,
+    data: providers,
+  });
+};
 
 export const getDiscover = async (
   req: Request,
   res: Response,
 ) => {
-  const params =
-    getMovieFilters(req);
-
-  const movies =
-    await discoverMovies(params);
+  const params = getMovieFilters(req);
+  const movies = await discoverMovies(params);
 
   res.status(200).json({
     success: true,

@@ -1,18 +1,107 @@
-import Groq from "groq-sdk";
-
 import { AppError } from "../../shared/utils/appError.js";
 
-const apiKey = process.env.GROQ_API_KEY;
+const DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
+const DEFAULT_NVIDIA_MODELS = [
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "meta/llama-3.3-70b-instruct",
+] as const;
+const REQUEST_TIMEOUT_MS = 30_000;
 
-if (!apiKey) {
-  throw new Error("GROQ_API_KEY is not configured");
-}
+type ChatRole = "system" | "user" | "assistant";
+type ChatMessage = { role: ChatRole; content: string };
+type ChatCompletionResponse = {
+  choices?: Array<{ message?: { content?: string | null } }>;
+  error?: { message?: string };
+};
 
-const groq = new Groq({
-  apiKey,
-});
+const getNvidiaConfig = () => {
+  const apiKey = process.env.NVIDIA_API_KEY?.trim();
+  if (!apiKey) {
+    throw new AppError("NVIDIA AI is not configured. Set NVIDIA_API_KEY in the server environment.", 503);
+  }
 
-const model = "openai/gpt-oss-120b";
+  const baseUrl = (process.env.NVIDIA_BASE_URL?.trim() || DEFAULT_NVIDIA_BASE_URL).replace(/\/+$/, "");
+  const primaryModel = process.env.NVIDIA_MODEL?.trim() || DEFAULT_NVIDIA_MODELS[0];
+  const configuredFallbacks = process.env.NVIDIA_FALLBACK_MODELS
+    ?.split(",")
+    .map((model) => model.trim())
+    .filter(Boolean);
+  const models = [
+    primaryModel,
+    ...(configuredFallbacks?.length ? configuredFallbacks : DEFAULT_NVIDIA_MODELS.slice(1)),
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  return { apiKey, baseUrl, models };
+};
+
+const createChatCompletion = async (
+  messages: ChatMessage[],
+  options: { temperature: number; maxTokens: number },
+): Promise<string> => {
+  const { apiKey, baseUrl, models } = getNvidiaConfig();
+  let lastError: unknown;
+
+  for (const model of models) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: options.temperature,
+          max_tokens: options.maxTokens,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as ChatCompletionResponse;
+
+      if (!response.ok) {
+        console.warn("NVIDIA model request failed", { model, status: response.status });
+        if (response.status === 401 || response.status === 403) {
+          throw new AppError("NVIDIA rejected the API credentials. Check NVIDIA_API_KEY.", 502);
+        }
+        if (response.status !== 429 && response.status >= 400 && response.status < 500) {
+          throw new AppError("NVIDIA rejected the AI request. Please check the request configuration.", 502);
+        }
+        lastError = new AppError(`NVIDIA model ${model} is temporarily unavailable.`, response.status === 429 ? 429 : 502);
+        continue;
+      }
+
+      const content = payload.choices?.[0]?.message?.content?.trim();
+      if (!content) {
+        lastError = new AppError(`NVIDIA model ${model} returned an empty response.`, 502);
+        continue;
+      }
+
+      console.info("MovieBox AI model succeeded", { model });
+      return content;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      lastError = new AppError(
+        controller.signal.aborted
+          ? `NVIDIA model ${model} timed out.`
+          : `Could not connect to NVIDIA model ${model}.`,
+        controller.signal.aborted ? 504 : 502,
+      );
+      console.warn("NVIDIA model failed; trying fallback", { model });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  console.error("All configured NVIDIA models failed.", lastError);
+  throw new AppError("All configured NVIDIA AI models are currently unavailable. Please try again shortly.", 503);
+};
 
 export type MovieAIRequest = {
   movieTitle: string;
@@ -88,10 +177,7 @@ const extractJson = <T>(content: string): T => {
 export const askMovieAI = async (
   request: MovieAIRequest,
 ): Promise<MovieAIResponse> => {
-  const response =
-    await groq.chat.completions.create({
-      model,
-      messages: [
+  const content = await createChatCompletion([
         {
           role: "system",
           content:
@@ -110,25 +196,15 @@ User question:
 ${request.question}
 `,
         },
-      ],
-      temperature: 0.5,
-      max_tokens: 350,
-    });
+      ], { temperature: 0.5, maxTokens: 350 });
 
-  return {
-    answer:
-      response.choices[0]?.message?.content ??
-      "Unable to generate an answer.",
-  };
+  return { answer: content || "Unable to generate an answer." };
 };
 
 export const extractAISearchIntent = async (
   request: AISearchRequest,
 ): Promise<AISearchIntent> => {
-  const response =
-    await groq.chat.completions.create({
-      model,
-      messages: [
+  const content = await createChatCompletion([
         {
           role: "system",
           content: `
@@ -153,13 +229,8 @@ Return only valid JSON.
           role: "user",
           content: request.query,
         },
-      ],
-      temperature: 0,
-      max_tokens: 300,
-    });
+      ], { temperature: 0, maxTokens: 300 });
 
-  const content =
-    response.choices[0]?.message?.content ?? "";
 
   try {
     const intent =
@@ -195,10 +266,7 @@ export const generateRecommendations = async (
     };
   }
 
-  const response =
-    await groq.chat.completions.create({
-      model,
-      messages: [
+  const content = await createChatCompletion([
         {
           role: "system",
           content: `
@@ -235,13 +303,8 @@ Expected format:
             candidates: request.movies,
           }),
         },
-      ],
-      temperature: 0.3,
-      max_tokens: 1500,
-    });
+      ], { temperature: 0.3, maxTokens: 1500 });
 
-  const content =
-    response.choices[0]?.message?.content ?? "";
 
   try {
     const result =
@@ -309,16 +372,12 @@ export const chatWithMovieAI = async ({
     },
   ];
 
-  const response =
-    await groq.chat.completions.create({
-      model,
-      messages,
-      temperature: 0.5,
-      max_tokens: 350,
-    });
+  const content = await createChatCompletion(messages, {
+    temperature: 0.5,
+    maxTokens: 350,
+  });
 
-  const answer =
-    response.choices[0]?.message?.content?.trim();
+  const answer = content.trim();
 
   if (!answer) {
     throw new AppError(

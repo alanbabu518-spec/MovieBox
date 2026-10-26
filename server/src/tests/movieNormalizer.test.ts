@@ -27,6 +27,8 @@ describe("movie normalizer", () => {
       voteCount: 1200,
       popularity: 350,
       originalLanguage: "en",
+      genreIds: [],
+      genres: [],
     });
   });
 
@@ -47,5 +49,7 @@ describe("movie normalizer", () => {
     expect(movie.releaseDate).toBeNull();
     expect(movie.posterPath).toBeNull();
     expect(movie.backdropPath).toBeNull();
+    expect(movie.genreIds).toEqual([]);
+    expect(movie.genres).toEqual([]);
   });
 });
