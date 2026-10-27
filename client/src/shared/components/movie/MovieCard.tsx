@@ -1,105 +1,208 @@
-import { memo, useState, type ReactNode } from "react";
-
-import { Heart, Play, Star } from "lucide-react";
-
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, Film, Heart, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Movie } from "../../types/movie";
 
-import { useAuth } from "../../../shared/context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
+import { useLibraryStore } from "../../../store/library.store";
+import { cn } from "../../lib/cn";
 
 interface MovieCardProps {
   movie: Movie;
   priority?: boolean;
+  className?: string;
+  /** Optional controlled favorite state (otherwise the shared library store is used) */
   isFavorite?: boolean;
-  onToggleFavorite?: (
-    movie: Movie,
-    next: boolean,
-  ) => void;
+  onToggleFavorite?: (movie: Movie, next: boolean) => void;
+  /** Replaces the heart + add buttons (used by Favorites / Watchlist pages) */
   action?: ReactNode;
 }
 
-const TMDB =
-  "https://image.tmdb.org/t/p";
+const TMDB = "https://image.tmdb.org/t/p";
 
-const PLACEHOLDER =
-  "/placeholder-movie.jpg";
-
-function ratingTone(rating: number) {
-  if (rating >= 7.5) {
-    return "#22c55e";
+/** "New" for the last 45 days, "Soon" for unreleased titles */
+function releaseBadge(releaseDate: string | null): "New" | "Soon" | null {
+  if (!releaseDate) {
+    return null;
   }
 
-  if (rating >= 6) {
-    return "#f5b301";
+  const days = (Date.now() - new Date(releaseDate).getTime()) / 86_400_000;
+
+  if (Number.isNaN(days)) {
+    return null;
   }
 
-  return "#ef4444";
+  if (days < 0) {
+    return "Soon";
+  }
+
+  return days <= 45 ? "New" : null;
 }
+
+const clamp = (value: number) => Math.min(1, Math.max(0, value));
+
+/* Glass control: solid on phones (cheap to scroll), real blur where there's headroom */
+const glass =
+  "bg-black/50 text-white ring-1 ring-white/15 md:bg-black/35 md:backdrop-blur-md md:backdrop-saturate-150";
+
+/* 44px touch target without a 44px visual */
+const hitArea = "before:absolute before:-inset-2 before:content-['']";
 
 function MovieCard({
   movie,
   priority = false,
+  className,
   isFavorite,
   onToggleFavorite,
   action,
 }: MovieCardProps) {
   const navigate = useNavigate();
-
   const { user, loading } = useAuth();
 
-  const [imageLoaded, setImageLoaded] =
-    useState(false);
+  const storeFavorite = useLibraryStore((state) =>
+    state.favorites.has(movie.id),
+  );
 
-  const [imageFailed, setImageFailed] =
-    useState(false);
+  const inWatchlist = useLibraryStore((state) =>
+    state.watchlist.has(movie.id),
+  );
 
-  const [localFavorite, setLocalFavorite] =
-    useState(false);
+  const favorite = isFavorite ?? storeFavorite;
 
-  const [pop, setPop] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [badge] = useState(() => releaseBadge(movie.releaseDate));
 
-  const favorite =
-    isFavorite ?? localFavorite;
+  /* Pointer-driven tilt: refs + rAF only, no React state per move */
+  const tiltRef = useRef<HTMLDivElement>(null);
+  const glareRef = useRef<HTMLSpanElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const heartRef = useRef<HTMLSpanElement>(null);
+  const addRef = useRef<HTMLSpanElement>(null);
+  const frame = useRef(0);
+  const canTilt = useRef(false);
+  const reduceMotion = useRef(false);
+
+  useEffect(() => {
+    canTilt.current = window.matchMedia(
+      "(hover: hover) and (pointer: fine)",
+    ).matches;
+
+    reduceMotion.current = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    return () => cancelAnimationFrame(frame.current);
+  }, []);
+
+  const handleEnter = (event: React.PointerEvent) => {
+    const tilt = tiltRef.current;
+
+    if (
+      !tilt ||
+      !canTilt.current ||
+      reduceMotion.current ||
+      event.pointerType !== "mouse"
+    ) {
+      return;
+    }
+
+    tilt.style.willChange = "transform"; // only while motion is imminent
+    tilt.style.transition = "transform 180ms ease-out";
+  };
+
+  const handleMove = (event: React.PointerEvent) => {
+    if (
+      !canTilt.current ||
+      reduceMotion.current ||
+      event.pointerType !== "mouse"
+    ) {
+      return;
+    }
+
+    const { clientX, clientY } = event;
+
+    cancelAnimationFrame(frame.current);
+
+    frame.current = requestAnimationFrame(() => {
+      const stage = stageRef.current;
+      const tilt = tiltRef.current;
+      const glare = glareRef.current;
+
+      if (!stage || !tilt) {
+        return;
+      }
+
+      const rect = stage.getBoundingClientRect();
+      const x = clamp((clientX - rect.left) / rect.width);
+      const y = clamp((clientY - rect.top) / rect.height);
+
+      tilt.style.transform = `rotateX(${((0.5 - y) * 9).toFixed(2)}deg) rotateY(${((x - 0.5) * 11).toFixed(2)}deg) scale3d(1.04,1.04,1)`;
+
+      if (glare) {
+        glare.style.transform = `translate3d(${((x - 0.5) * 70).toFixed(1)}%,${((y - 0.5) * 70).toFixed(1)}%,0)`;
+      }
+    });
+  };
+
+  const handleLeave = () => {
+    cancelAnimationFrame(frame.current);
+
+    const tilt = tiltRef.current;
+
+    if (tilt) {
+      tilt.style.transition = "transform 650ms cubic-bezier(0.16, 1, 0.3, 1)";
+      tilt.style.transform = "";
+      tilt.style.willChange = "";
+    }
+
+    if (glareRef.current) {
+      glareRef.current.style.transform = "";
+    }
+  };
+
+  /* Quick spring-ish pop on the icon (transform only, Web Animations API) */
+  const pop = (element: HTMLElement | null) => {
+    if (!element || reduceMotion.current) {
+      return;
+    }
+
+    element.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.35)", offset: 0.4 },
+        { transform: "scale(1)" },
+      ],
+      { duration: 360, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+    );
+  };
 
   const parsedYear = movie.releaseDate
-    ? new Date(
-        movie.releaseDate,
-      ).getFullYear()
+    ? new Date(movie.releaseDate).getFullYear()
     : null;
 
-  const releaseYear =
-    parsedYear &&
-    !Number.isNaN(parsedYear)
-      ? parsedYear
-      : null;
-
+  const year = parsedYear && !Number.isNaN(parsedYear) ? parsedYear : null;
   const rating = movie.rating ?? 0;
-
   const genres = movie.genres ?? [];
+  const hasPoster = Boolean(movie.posterPath) && !imageFailed;
 
-  const overview = (
-    movie as Movie & {
-      overview?: string;
+  const meta = [year, genres[0] ?? null].filter(Boolean);
+
+  const requireAuth = (callback: () => void) => {
+    if (loading) {
+      return;
     }
-  ).overview;
 
-  const hasPoster =
-    Boolean(movie.posterPath) &&
-    !imageFailed;
+    if (!user) {
+      navigate("/signin");
+      return;
+    }
 
-  const poster185 = `${TMDB}/w185${movie.posterPath}`;
+    callback();
+  };
 
-  const poster342 = `${TMDB}/w342${movie.posterPath}`;
-
-  const poster500 = `${TMDB}/w500${movie.posterPath}`;
-
-  const detailsHref =
-    `/movie/${movie.id}`;
-
-  const handleOpenMovie = (
-    event: React.MouseEvent<HTMLAnchorElement>,
-  ) => {
+  const handleOpenMovie = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (loading) {
       event.preventDefault();
       return;
@@ -111,293 +214,244 @@ function MovieCard({
     }
   };
 
-  const handleFavorite = (
-    event: React.MouseEvent<HTMLButtonElement>,
-  ) => {
+  const handleFavorite = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    if (loading) {
-      return;
-    }
+    requireAuth(() => {
+      const next = !favorite;
 
-    if (!user) {
-      navigate("/signin");
-      return;
-    }
+      pop(heartRef.current);
+      navigator.vibrate?.(10);
 
-    const next = !favorite;
-
-    setLocalFavorite(next);
-
-    setPop(true);
-
-    window.setTimeout(() => {
-      setPop(false);
-    }, 300);
-
-    onToggleFavorite?.(movie, next);
+      if (onToggleFavorite) {
+        onToggleFavorite(movie, next);
+      } else {
+        void useLibraryStore.getState().toggle("favorites", movie.id);
+      }
+    });
   };
 
-  const meta = [
-    releaseYear,
-    movie.originalLanguage?.toUpperCase(),
-    genres[0],
-  ].filter(Boolean);
+  const handleWatchlist = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    requireAuth(() => {
+      pop(addRef.current);
+      navigator.vibrate?.(10);
+      void useLibraryStore.getState().toggle("watchlist", movie.id);
+    });
+  };
 
   return (
-    <article className="group relative">
-      <div
-        className="relative overflow-hidden rounded-lg border transition-all duration-300 active:scale-[0.98] sm:rounded-xl motion-safe:group-hover:-translate-y-1 group-hover:shadow-xl group-focus-within:ring-2 group-focus-within:ring-(--primary)"
-        style={{
-          backgroundColor:
-            "var(--card)",
-          borderColor:
-            "var(--border)",
-        }}
-      >
-        <div className="relative aspect-2/3 overflow-hidden">
-          {!imageLoaded &&
-            hasPoster && (
-              <div
-                className="absolute inset-0 animate-pulse"
-                style={{
-                  backgroundColor:
-                    "var(--border)",
-                }}
-                aria-hidden="true"
-              />
-            )}
+    <article className={cn("group relative min-w-0", className)}>
+      {/* Press feedback lives on a non-tilting layer: instant down, soft release */}
+      <div className="transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.96] active:duration-100">
+        <div
+          ref={stageRef}
+          onPointerEnter={handleEnter}
+          onPointerMove={handleMove}
+          onPointerLeave={handleLeave}
+          className="relative [perspective:900px]"
+        >
+          {/* Depth: always rendered, only opacity animates */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-2 -bottom-1 -z-10 h-2/3 rounded-3xl opacity-0 shadow-[0_28px_50px_-14px_rgba(0,0,0,0.85)] transition-opacity duration-500 group-hover:opacity-100"
+          />
 
-          {hasPoster ? (
-            <img
-              src={poster342}
-              srcSet={`${poster185} 185w, ${poster342} 342w, ${poster500} 500w`}
-              sizes="(min-width: 1280px) 160px, (min-width: 640px) 20vw, 28vw"
-              alt={`${movie.title} poster`}
-              loading={
-                priority
-                  ? "eager"
-                  : "lazy"
-              }
-              decoding="async"
-              fetchPriority={
-                priority
-                  ? "high"
-                  : "auto"
-              }
-              width={342}
-              height={513}
-              onLoad={() =>
-                setImageLoaded(true)
-              }
-              onError={() =>
-                setImageFailed(true)
-              }
-              className={`h-full w-full object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-105 ${
-                imageLoaded
-                  ? "opacity-100"
-                  : "opacity-0"
-              }`}
-            />
-          ) : (
-            <div
-              className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-2 text-center"
-              style={{
-                backgroundColor:
-                  "var(--card)",
-                color:
-                  "var(--text-secondary)",
-              }}
-            >
-              <img
-                src={PLACEHOLDER}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover opacity-30"
-                onError={(event) => {
-                  event.currentTarget.style.display =
-                    "none";
-                }}
-              />
+          <div
+            ref={tiltRef}
+            className="relative aspect-2/3 overflow-hidden rounded-2xl bg-card shadow-[0_10px_28px_-14px_rgba(0,0,0,0.7)]"
+          >
+            {hasPoster ? (
+              <>
+                {!imageLoaded && (
+                  <div className="skeleton absolute inset-0" aria-hidden="true" />
+                )}
 
-              <Play
-                size={20}
-                strokeWidth={1.5}
-                className="relative"
-              />
-
-              <span className="relative line-clamp-3 text-[11px] font-medium">
-                {movie.title}
-              </span>
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/80 to-transparent" />
-
-          {rating > 0 && (
-            <div
-              className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-md transition-opacity duration-200 sm:group-hover:opacity-0 sm:group-focus-within:opacity-0"
-              aria-label={`Rated ${rating.toFixed(1)} out of 10`}
-            >
-              <Star
-                size={10}
-                fill="currentColor"
-                strokeWidth={0}
-                style={{
-                  color:
-                    ratingTone(rating),
-                }}
-              />
-
-              {rating.toFixed(1)}
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-0 bg-linear-to-t from-black/95 via-black/80 to-transparent px-2.5 pb-2.5 pt-10 opacity-100 transition-all duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-within:translate-y-0 sm:group-focus-within:opacity-100">
-            <div className="mb-1.5 flex items-center gap-2 text-[10px] font-semibold text-white">
-              {rating > 0 && (
-                <span className="flex items-center gap-1">
-                  <Star
-                    size={10}
-                    fill="currentColor"
-                    strokeWidth={0}
-                    style={{
-                      color:
-                        ratingTone(
-                          rating,
-                        ),
-                    }}
-                  />
-
-                  {rating.toFixed(1)}
+                <img
+                  src={`${TMDB}/w342${movie.posterPath}`}
+                  srcSet={`${TMDB}/w185${movie.posterPath} 185w, ${TMDB}/w342${movie.posterPath} 342w, ${TMDB}/w500${movie.posterPath} 500w`}
+                  sizes="(min-width: 1280px) 190px, (min-width: 640px) 22vw, 34vw"
+                  alt={`${movie.title} poster`}
+                  width={342}
+                  height={513}
+                  draggable={false}
+                  loading={priority ? "eager" : "lazy"}
+                  decoding="async"
+                  fetchPriority={priority ? "high" : "auto"}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageFailed(true)}
+                  className={cn(
+                    "h-full w-full select-none object-cover [-webkit-touch-callout:none] transition-opacity duration-500",
+                    imageLoaded ? "opacity-100" : "opacity-0",
+                  )}
+                />
+              </>
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-linear-to-b from-elevated to-card p-3 text-center text-muted">
+                <Film size={26} strokeWidth={1.4} />
+                <span className="line-clamp-3 text-[11px] font-medium">
+                  {movie.title}
                 </span>
-              )}
-
-              {releaseYear && (
-                <span className="text-white/70">
-                  {releaseYear}
-                </span>
-              )}
-            </div>
-
-            {overview && (
-              <p className="mb-2 line-clamp-2 text-[10px] leading-relaxed text-white/80">
-                {overview}
-              </p>
-            )}
-
-            {genres.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1">
-                {genres
-                  .slice(0, 2)
-                  .map((genre) => (
-                    <span
-                      key={genre}
-                      className="rounded-full border border-white/25 px-1.5 py-0.5 text-[9px] font-medium text-white/90"
-                    >
-                      {genre}
-                    </span>
-                  ))}
               </div>
             )}
 
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white"
-              style={{
-                backgroundColor:
-                  "var(--primary)",
-              }}
-            >
-              <Play
-                size={10}
-                fill="currentColor"
-                strokeWidth={0}
-              />
+            {/* Legibility scrim for the corner controls */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-black/55 to-transparent"
+            />
 
-              View details
-            </span>
+            {/* Desktop hover: overview rises above the control row (never shown on touch) */}
+            {movie.overview && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-1.5 bg-linear-to-t from-black/90 via-black/65 to-transparent px-3.5 pb-12 pt-14 opacity-0 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
+              >
+                <p className="line-clamp-3 text-[11.5px] leading-[1.45] tracking-[0.005em] text-white/85">
+                  {movie.overview}
+                </p>
+              </div>
+            )}
+
+            {/* Specular highlight (moves with the pointer on desktop) */}
+            <span
+              ref={glareRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-1/2 h-[140%] w-[140%] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle,rgba(255,255,255,0.2),transparent_55%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            />
+
+            {/* Light catching the edge */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/12"
+            />
+
+            {/* Top-left: release badge */}
+            {badge && (
+              <span
+                className={cn(
+                  "pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase leading-none tracking-[0.08em]",
+                  glass,
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    badge === "New" ? "bg-brand" : "bg-sky-400",
+                  )}
+                />
+                {badge}
+              </span>
+            )}
+
+            {/* Bottom-left: rating */}
+            {rating > 0 && (
+              <span
+                aria-label={`Rated ${rating.toFixed(1)} out of 10`}
+                className={cn(
+                  "pointer-events-none absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold leading-none tabular-nums",
+                  glass,
+                )}
+              >
+                <Star
+                  size={11}
+                  fill="currentColor"
+                  strokeWidth={0}
+                  className="text-gold"
+                />
+                {rating.toFixed(1)}
+              </span>
+            )}
+
+            {action ?? (
+              <>
+                {/* Top-right: favorite */}
+                <button
+                  type="button"
+                  aria-pressed={favorite}
+                  aria-label={
+                    favorite
+                      ? `Remove ${movie.title} from favorites`
+                      : `Add ${movie.title} to favorites`
+                  }
+                  onClick={handleFavorite}
+                  className={cn(
+                    "absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full transition-transform duration-100 active:scale-90",
+                    glass,
+                    hitArea,
+                  )}
+                >
+                  <span ref={heartRef} className="grid place-items-center">
+                    <Heart
+                      size={15}
+                      strokeWidth={2}
+                      className={cn(favorite && "fill-brand text-brand")}
+                    />
+                  </span>
+                </button>
+
+                {/* Bottom-right: watchlist */}
+                <button
+                  type="button"
+                  aria-pressed={inWatchlist}
+                  aria-label={
+                    inWatchlist
+                      ? `Remove ${movie.title} from watchlist`
+                      : `Add ${movie.title} to watchlist`
+                  }
+                  onClick={handleWatchlist}
+                  className={cn(
+                    "absolute bottom-2 right-2 z-10 grid h-[30px] w-[30px] place-items-center rounded-full transition-[transform,background-color] duration-100 active:scale-90",
+                    inWatchlist
+                      ? "bg-brand text-white ring-1 ring-white/20"
+                      : glass,
+                    hitArea,
+                  )}
+                >
+                  <span ref={addRef} className="grid place-items-center">
+                    {inWatchlist ? (
+                      <Check size={15} strokeWidth={2.6} />
+                    ) : (
+                      <Plus size={16} strokeWidth={2.4} />
+                    )}
+                  </span>
+                </button>
+              </>
+            )}
           </div>
         </div>
-
-        {action}
-
-        <button
-          type="button"
-          aria-label={
-            favorite
-              ? `Remove ${movie.title} from favorites`
-              : `Add ${movie.title} to favorites`
-          }
-          aria-pressed={favorite}
-          onClick={handleFavorite}
-          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white shadow-md backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-white hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2 sm:top-2 sm:h-8 sm:w-8"
-        >
-          <Heart
-            size={14}
-            strokeWidth={2}
-            className={`transition-all duration-200 ${
-              favorite
-                ? "fill-red-500 text-red-500"
-                : "text-white"
-            } ${
-              pop
-                ? "scale-125"
-                : "scale-100"
-            }`}
-          />
-        </button>
       </div>
 
-      <div className="px-0.5 pt-2">
-        <h3 className="min-w-0 text-[12px] font-semibold leading-snug sm:text-[13px]">
+      <div className="px-1 pt-2.5">
+        <h3 className="min-w-0 text-[13.5px] font-semibold leading-[1.25] tracking-[-0.011em] sm:text-sm">
           <Link
-            to={detailsHref}
+            to={`/movie/${movie.id}`}
             onClick={handleOpenMovie}
             title={movie.title}
-            className="line-clamp-1 transition-colors duration-200 after:absolute after:inset-0 after:z-0 after:content-[''] hover:text-(--primary) focus:outline-none"
-            style={{
-              color:
-                "var(--text-primary)",
-            }}
+            className="line-clamp-1 rounded-sm after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             {movie.title}
           </Link>
         </h3>
 
         {meta.length > 0 && (
-          <p
-            className="mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[10px] sm:text-[11px]"
-            style={{
-              color:
-                "var(--text-secondary)",
-            }}
-          >
-            {meta.map(
-              (item, index) => (
-                <span
-                  key={`${item}-${index}`}
-                  className={`items-center gap-1.5 ${
-                    index === 2
-                      ? "hidden sm:flex"
-                      : "flex"
-                  }`}
-                >
-                  {index > 0 && (
-                    <span
-                      className="h-0.5 w-0.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          "var(--text-secondary)",
-                      }}
-                      aria-hidden="true"
-                    />
-                  )}
+          <p className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11.5px] leading-none tracking-[0.005em] text-muted">
+            {meta.map((item, index) => (
+              <span key={`${item}-${index}`} className="flex items-center gap-1.5">
+                {index > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="h-[3px] w-[3px] rounded-full bg-muted/70"
+                  />
+                )}
 
-                  {item}
-                </span>
-              ),
-            )}
+                <span className="truncate">{item}</span>
+              </span>
+            ))}
           </p>
         )}
       </div>

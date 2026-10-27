@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   LayoutGrid,
   List,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   X,
@@ -14,9 +16,10 @@ import MovieCard from "../shared/components/movie/MovieCard";
 import MovieRow from "../shared/components/movie/MovieRow";
 import Sheet from "../shared/components/ui/Sheet";
 import DiscoverFilters, {
-  GENRES,
   type DiscoverValues,
 } from "../shared/components/movie/DiscoverFilters";
+
+import { GENRES } from "../shared/constants/genres";
 
 import {
   getPopularMovies,
@@ -49,6 +52,54 @@ const mapMovies = (
       genres: movie.genres ?? [],
     }));
 
+/**
+ * Converts API/network failures into messages that are useful to users.
+ * Keep technical details in the console, not in the UI.
+ */
+function getMovieErrorMessage(error: unknown, fallback: string): string {
+  const apiError = error as {
+    code?: string;
+    message?: string;
+    response?: { status?: number };
+  };
+
+  const status = apiError?.response?.status;
+
+  if (
+    apiError?.code === "ECONNABORTED" ||
+    apiError?.code === "ETIMEDOUT" ||
+    status === 408
+  ) {
+    return "The request took too long. Please try again.";
+  }
+
+  if (!apiError?.response) {
+    return "Unable to connect. Check your internet connection and try again.";
+  }
+
+  if (status === 401) {
+    return "Your session may have expired. Please refresh the page and try again.";
+  }
+
+  if (status === 403) {
+    return "This request is not allowed. Please try again later.";
+  }
+
+  if (status === 404) {
+    return "We couldn't find the requested movies. Try another search.";
+  }
+
+  if (status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
+  if (status && status >= 500) {
+    return "Our movie service is temporarily unavailable. Please try again shortly.";
+  }
+
+  return fallback;
+}
+
 type MovieCategory = "trending" | "upcoming" | "popular";
 
 function isMovieCategory(value: string | null): value is MovieCategory {
@@ -75,6 +126,8 @@ export default function Movies() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const [retryPage, setRetryPage] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
@@ -84,11 +137,15 @@ export default function Movies() {
   /* A search started from the navbar arrives as ?q= */
   const urlQuery = searchParams.get("q");
 
-  useEffect(() => {
+  const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery);
+
+  if (urlQuery !== lastUrlQuery) {
+    setLastUrlQuery(urlQuery);
+
     if (urlQuery) {
       setQuery(urlQuery);
     }
-  }, [urlQuery]);
+  }
 
   const categoryParam = searchParams.get("category");
   const category: MovieCategory = isMovieCategory(categoryParam)
@@ -181,8 +238,8 @@ export default function Movies() {
         setTotalResults(result.totalResults);
       } catch (err) {
         console.error("Movie category loading failed:", err);
-        setError("Unable to load movies right now.");
-        setMovies([]);
+        setError(getMovieErrorMessage(err, "Unable to load movies right now."));
+        setRetryPage(null);
       } finally {
         setLoading(false);
       }
@@ -190,7 +247,16 @@ export default function Movies() {
 
     void loadMovies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, genre, language, year, minRating, query, searchParams]);
+  }, [
+    category,
+    genre,
+    language,
+    year,
+    minRating,
+    query,
+    searchParams,
+    retryVersion,
+  ]);
 
   /* Debounced search */
   useEffect(() => {
@@ -214,15 +280,17 @@ export default function Movies() {
         setTotalResults(result.totalResults);
       } catch (err) {
         console.error("Movie search failed:", err);
-        setError("Unable to search movies right now.");
-        setMovies([]);
+        setError(
+          getMovieErrorMessage(err, "Unable to search movies right now."),
+        );
+        setRetryPage(null);
       } finally {
         setLoading(false);
       }
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [query, retryVersion]);
 
   const handlePageChange = async (nextPage: number) => {
     if (nextPage < 1 || nextPage > totalPages || loading) {
@@ -232,6 +300,7 @@ export default function Movies() {
     try {
       setLoading(true);
       setError("");
+      setRetryPage(null);
 
       if (query.trim()) {
         const result = await searchMovies(query.trim(), nextPage);
@@ -264,7 +333,8 @@ export default function Movies() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error("Failed to change page:", err);
-      setError("Unable to load this page.");
+      setError(getMovieErrorMessage(err, "Unable to load this page."));
+      setRetryPage(nextPage);
     } finally {
       setLoading(false);
     }
@@ -461,8 +531,40 @@ export default function Movies() {
             </div>
 
             {error ? (
-              <div className="rounded-2xl border border-line bg-card p-10 text-center text-sm text-muted">
-                {error}
+              <div
+                role="alert"
+                className="flex flex-col items-center rounded-2xl border border-line bg-card px-6 py-12 text-center"
+              >
+                <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-red-500/10 text-red-500">
+                  <AlertTriangle size={26} />
+                </div>
+
+                <h3 className="font-display text-lg font-bold text-ink">
+                  Something went wrong
+                </h3>
+
+                <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+                  {error}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (retryPage !== null) {
+                      void handlePageChange(retryPage);
+                    } else {
+                      setRetryVersion((version) => version + 1);
+                    }
+                  }}
+                  disabled={loading}
+                  className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw
+                    size={16}
+                    className={loading ? "animate-spin" : ""}
+                  />
+                  {loading ? "Trying again..." : "Try again"}
+                </button>
               </div>
             ) : loading || !hasSearched ? (
               <div className={GRID}>

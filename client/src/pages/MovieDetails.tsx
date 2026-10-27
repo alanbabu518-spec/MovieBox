@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import axios from "axios";
 
 import Navbar from "../shared/components/layout/Navbar";
 import Footer from "../shared/components/layout/Footer";
@@ -14,10 +15,9 @@ import MovieReviews from "../shared/components/moviedetails/MovieReviews";
 import AddReview from "../shared/components/moviedetails/AddReview";
 import AIRecommendations from "../shared/components/movie/AIRecommendations";
 import SectionHeader from "../shared/components/ui/Sectionheader";
-import {
-  MovieDetailsError,
-  MovieDetailsSkeleton,
-} from "../shared/components/moviedetails/Moviedetailsstates";
+
+import { MovieDetailsSkeleton } from "../shared/components/moviedetails/Moviedetailsstates";
+import ErrorPage from "../shared/components/errors/ErrorPage";
 
 import {
   getMovieDetails,
@@ -58,6 +58,60 @@ const names = (list: { name: string }[], count = 3) =>
     .slice(0, count)
     .join(", ") || null;
 
+/**
+ * Convert API and network errors into user-friendly messages.
+ */
+function getMovieErrorStatusCode(error: unknown): number {
+  if (!axios.isAxiosError(error)) return 500;
+
+  const status = error.response?.status;
+
+  if (status === 404) return 404;
+  if (status === 401) return 401;
+  if (status === 403) return 403;
+  if (status === 429) return 429;
+  if (status === 503) return 503;
+  if (
+    status === 408 ||
+    error.code === "ECONNABORTED" ||
+    error.code === "ETIMEDOUT"
+  ) {
+    return 503;
+  }
+  if (!error.response) return 503;
+  if (status !== undefined && status >= 500) return 503;
+
+  return 500;
+}
+
+function getMovieErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+
+    if (status === 404) {
+      return "We couldn't find this movie. It may have been removed or the movie ID may be invalid.";
+    }
+
+    if (status === 408 || error.code === "ECONNABORTED") {
+      return "The request took too long. Please try again.";
+    }
+
+    if (status === 429) {
+      return "Too many requests right now. Please wait a moment and try again.";
+    }
+
+    if (!error.response) {
+      return "Unable to connect to MovieBox. Check your internet connection and try again.";
+    }
+
+    if (status !== undefined && status >= 500) {
+      return "Our movie service is temporarily unavailable. Please try again.";
+    }
+  }
+
+  return "Something went wrong while loading this movie. Please try again.";
+}
+
 export default function MovieDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -66,12 +120,18 @@ export default function MovieDetails() {
   const [providers, setProviders] = useState<WatchProviders | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [errorStatusCode, setErrorStatusCode] = useState(500);
   const [reviewsVersion, setReviewsVersion] = useState(0);
   const [active, setActive] = useState<string>("overview");
 
   const loadMovie = useCallback(async () => {
-    if (!id) {
-      setError("Movie ID is missing.");
+    if (!id || !/^\d+$/.test(id) || Number(id) <= 0) {
+      setMovie(null);
+      setProviders(null);
+      setErrorStatusCode(404);
+      setError(
+        "This movie link is invalid. Please check the movie ID and try again.",
+      );
       setLoading(false);
       return;
     }
@@ -79,17 +139,28 @@ export default function MovieDetails() {
     try {
       setLoading(true);
       setError("");
+      setErrorStatusCode(500);
 
-      const [movieData, providerData] = await Promise.all([
-        getMovieDetails(id),
-        getWatchProviders(id).catch(() => null),
-      ]);
+      const movieData = await getMovieDetails(id);
+
+      // Load provider information separately. A provider failure
+      // should not prevent the main movie details from displaying.
+      const providerData = await getWatchProviders(id).catch(
+        (providerError) => {
+          console.error("Failed to load watch providers:", providerError);
+          return null;
+        },
+      );
 
       setMovie(movieData);
       setProviders(providerData);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load movie:", err);
-      setError("Something went wrong while fetching the details.");
+
+      setMovie(null);
+      setProviders(null);
+      setErrorStatusCode(getMovieErrorStatusCode(err));
+      setError(getMovieErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -97,7 +168,14 @@ export default function MovieDetails() {
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
-    void loadMovie();
+
+    const timeoutId = window.setTimeout(() => {
+      void loadMovie();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [loadMovie]);
 
   /* Highlight the tab of the section currently in view */
@@ -109,6 +187,10 @@ export default function MovieDetails() {
     const nodes = SECTIONS.map((section) =>
       document.getElementById(section.id),
     ).filter((node): node is HTMLElement => node !== null);
+
+    if (nodes.length === 0) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -139,14 +221,12 @@ export default function MovieDetails() {
 
   if (error || !movie) {
     return (
-      <div className="min-h-screen overflow-x-hidden">
-        <Navbar />
-        <MovieDetailsError
-          message={error || "We couldn’t find this movie."}
-          onRetry={() => void loadMovie()}
-          onBack={() => navigate(-1)}
-        />
-      </div>
+      <ErrorPage
+        statusCode={error ? errorStatusCode : 404}
+        message={
+          error || "We couldn't find this movie. Please try another movie."
+        }
+      />
     );
   }
 
@@ -172,7 +252,10 @@ export default function MovieDetails() {
   const facts = [
     {
       label: "Director",
-      value: names(credits.crew.filter((p) => p.job === "Director"), 2),
+      value: names(
+        credits.crew.filter((p) => p.job === "Director"),
+        2,
+      ),
     },
     {
       label: "Writers",
@@ -295,15 +378,23 @@ export default function MovieDetails() {
 
         {/* Reviews */}
         <div id="reviews" className="scroll-mt-28">
-          <MovieRating key={`rating-${reviewsVersion}`} tmdbId={String(movie.id)} />
-          <MovieReviews key={`reviews-${reviewsVersion}`} tmdbId={String(movie.id)} />
+          <MovieRating
+            key={`rating-${reviewsVersion}`}
+            tmdbId={String(movie.id)}
+          />
+
+          <MovieReviews
+            key={`reviews-${reviewsVersion}`}
+            tmdbId={String(movie.id)}
+          />
+
           <AddReview
             tmdbId={String(movie.id)}
             onReviewCreated={() => setReviewsVersion((value) => value + 1)}
           />
         </div>
 
-        {/* Similar */}
+        {/* Similar movies and AI recommendations */}
         <div id="similar" className="scroll-mt-28">
           <SimilarMovies movies={similar.results} />
           <AIRecommendations />

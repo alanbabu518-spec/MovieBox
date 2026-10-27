@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type {FormEvent} from "react";
+import type { FormEvent } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,14 +21,13 @@ const AISearch = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSearch = async (
-    event: FormEvent,
-  ) => {
+  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedQuery = query.trim();
 
     if (!trimmedQuery) {
+      setError("Enter a description of the movies you want to find.");
       return;
     }
 
@@ -36,14 +35,15 @@ const AISearch = () => {
       setLoading(true);
       setError("");
 
-      const result =
-        await searchWithAI(trimmedQuery);
+      const result = await searchWithAI(trimmedQuery);
 
       setMovies(result.movies);
       setIntent(result.intent);
-    } catch {
+    } catch (error: unknown) {
+      console.error("AI movie search failed:", error);
+
       setError(
-        "Unable to search movies right now.",
+        "Unable to search movies right now. Check your connection and try again.",
       );
       setMovies([]);
       setIntent(null);
@@ -53,14 +53,12 @@ const AISearch = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <main className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-4 flex items-center justify-center gap-2 text-[#e50914]">
-            <Sparkles size={20} />
-            <span className="text-sm font-medium">
-              MovieBox AI
-            </span>
+            <Sparkles size={20} aria-hidden="true" />
+            <span className="text-sm font-medium">MovieBox AI</span>
           </div>
 
           <h1 className="text-3xl font-semibold sm:text-4xl">
@@ -71,23 +69,23 @@ const AISearch = () => {
             Tell MovieBox what you want to watch.
           </p>
 
-          <form
-            onSubmit={handleSearch}
-            className="mt-8"
-          >
+          <form onSubmit={handleSearch} className="mt-8">
             <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#111111] p-2">
               <Search
                 size={20}
+                aria-hidden="true"
                 className="ml-2 shrink-0 text-zinc-500"
               />
 
               <input
                 type="text"
                 value={query}
-                onChange={(event) =>
-                  setQuery(event.target.value)
-                }
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  if (error) setError("");
+                }}
                 placeholder="Try: Malayalam action movies after 2020"
+                aria-label="Describe the movies you want to find"
                 className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-white outline-none placeholder:text-zinc-600"
               />
 
@@ -119,39 +117,66 @@ const AISearch = () => {
             {intent.yearFrom && (
               <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
                 {intent.yearFrom}
-                {intent.yearTo
-                  ? ` - ${intent.yearTo}`
-                  : "+"}
+                {intent.yearTo ? ` - ${intent.yearTo}` : "+"}
               </span>
             )}
 
             {intent.sortBy && (
               <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
-                {intent.sortBy.replace(
-                  "_",
-                  " ",
-                )}
+                {intent.sortBy.replace("_", " ")}
               </span>
             )}
           </div>
         )}
 
         {error && (
-          <p className="mt-8 text-center text-sm text-red-500">
-            {error}
+          <div
+            role="alert"
+            className="mx-auto mt-8 max-w-xl rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-center"
+          >
+            <p className="text-sm text-red-400">{error}</p>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                const form = event.currentTarget.closest("main")?.querySelector("form");
+                form?.requestSubmit();
+              }}
+              disabled={loading || !query.trim()}
+              className="mt-3 text-sm font-medium text-white underline underline-offset-4 disabled:opacity-50"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {loading && (
+          <section
+            aria-label="Loading search results"
+            aria-live="polite"
+            className="mt-12"
+          >
+            <div className="mb-6 h-6 w-48 animate-pulse rounded bg-zinc-800" />
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="aspect-[2/3] rounded-lg bg-zinc-900" />
+                  <div className="mt-3 h-4 rounded bg-zinc-900" />
+                  <div className="mt-2 h-3 w-1/2 rounded bg-zinc-900" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && movies.length === 0 && intent && (
+          <p className="mt-12 text-center text-zinc-500">
+            No movies found. Try describing your preferences differently.
           </p>
         )}
 
-        {!loading &&
-          !error &&
-          movies.length === 0 &&
-          intent && (
-            <p className="mt-12 text-center text-zinc-500">
-              No movies found.
-            </p>
-          )}
-
-        {movies.length > 0 && (
+        {!loading && movies.length > 0 && (
           <section className="mt-12">
             <div className="mb-6">
               <h2 className="text-xl font-semibold">
@@ -159,7 +184,7 @@ const AISearch = () => {
               </h2>
 
               <p className="mt-1 text-sm text-zinc-500">
-                {movies.length} movies found
+                {movies.length} {movies.length === 1 ? "movie" : "movies"} found
               </p>
             </div>
 
@@ -168,23 +193,21 @@ const AISearch = () => {
                 <button
                   key={movie.id}
                   type="button"
-                  onClick={() =>
-                    navigate(
-                      `/movies/${movie.id}`,
-                    )
-                  }
-                  className="group text-left"
+                  onClick={() => navigate(`/movie/${movie.id}`)}
+                  aria-label={`View details for ${movie.title}`}
+                  className="group min-w-0 text-left"
                 >
-                  <div className="aspect-2/3 overflow-hidden rounded-lg bg-zinc-900">
+                  <div className="aspect-[2/3] overflow-hidden rounded-lg bg-zinc-900">
                     {movie.posterPath ? (
                       <img
                         src={`${imageBaseUrl}${movie.posterPath}`}
-                        alt={movie.title}
+                        alt={`${movie.title} poster`}
+                        loading="lazy"
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center px-3 text-center text-sm text-zinc-500">
-                        No Poster
+                        No Poster Available
                       </div>
                     )}
                   </div>
@@ -195,10 +218,7 @@ const AISearch = () => {
 
                   {movie.releaseDate && (
                     <p className="mt-1 text-xs text-zinc-500">
-                      {movie.releaseDate.slice(
-                        0,
-                        4,
-                      )}
+                      {movie.releaseDate.slice(0, 4)}
                     </p>
                   )}
                 </button>
@@ -207,7 +227,7 @@ const AISearch = () => {
           </section>
         )}
       </div>
-    </div>
+    </main>
   );
 };
 

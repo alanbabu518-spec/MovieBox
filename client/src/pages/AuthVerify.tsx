@@ -1,5 +1,8 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
 export default function AuthVerify() {
   const navigate = useNavigate();
@@ -9,21 +12,44 @@ export default function AuthVerify() {
     const token = searchParams.get("token");
 
     if (!token) {
-      navigate("/signin", { replace: true });
+      navigate("/signin", {
+        replace: true,
+        state: {
+          authError:
+            "The sign-in link is missing its token. Please request a new link.",
+        },
+      });
+
       return;
     }
 
-    const apiUrl = import.meta.env.VITE_API_BASE_URL;
+    const apiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-    window.location.href =
-      `${apiUrl}/auth/verify?token=${encodeURIComponent(token)}`;
+    if (!apiUrl) {
+      navigate("/signin", {
+        replace: true,
+        state: {
+          authError:
+            "Sign-in verification is temporarily unavailable. Please try again.",
+        },
+      });
+
+      return;
+    }
+
+    const verificationUrl =
+      `${apiUrl.replace(/\/+$/, "")}/auth/verify?token=${encodeURIComponent(token)}`;
+
+    window.location.replace(verificationUrl);
   }, [navigate, searchParams]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black px-5">
       <div className="text-center">
         <div
-          className="mx-auto mb-5 h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-(--primary)]"
+          role="status"
+          aria-label="Verifying your email"
+          className="mx-auto mb-5 h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-[var(--primary)]"
         />
 
         <h1 className="text-lg font-semibold text-white">

@@ -1,25 +1,6 @@
+import type { ReactNode } from "react";
 import { cn } from "../../lib/cn";
-
-export const GENRES = [
-  { id: "28", name: "Action" },
-  { id: "12", name: "Adventure" },
-  { id: "16", name: "Animation" },
-  { id: "35", name: "Comedy" },
-  { id: "80", name: "Crime" },
-  { id: "99", name: "Documentary" },
-  { id: "18", name: "Drama" },
-  { id: "10751", name: "Family" },
-  { id: "14", name: "Fantasy" },
-  { id: "36", name: "History" },
-  { id: "27", name: "Horror" },
-  { id: "10402", name: "Music" },
-  { id: "9648", name: "Mystery" },
-  { id: "10749", name: "Romance" },
-  { id: "878", name: "Sci-Fi" },
-  { id: "53", name: "Thriller" },
-  { id: "10752", name: "War" },
-  { id: "37", name: "Western" },
-];
+import { GENRES } from "../../constants/genres";
 
 const LANGUAGES = [
   { id: "en", name: "English" },
@@ -51,7 +32,9 @@ const RATINGS = [
 ];
 
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 30 }, (_, i) => String(currentYear - i));
+const YEARS = Array.from({ length: 30 }, (_, index) =>
+  String(currentYear - index),
+);
 
 export interface DiscoverValues {
   category: string;
@@ -74,7 +57,7 @@ function Chip({
   onClick,
 }: {
   active: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   onClick: () => void;
 }) {
   return (
@@ -97,13 +80,7 @@ function Chip({
 const selectClass =
   "h-11 w-full rounded-xl border border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand/70";
 
-function Group({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="border-b border-line py-5 first:pt-0 last:border-0">
       <legend className="mb-3 text-sm font-semibold">{title}</legend>
@@ -127,7 +104,7 @@ export default function DiscoverFilters({
           <button
             type="button"
             onClick={onReset}
-            className="text-sm font-medium text-brand"
+            className="text-sm font-medium text-brand transition-opacity hover:opacity-80"
           >
             Clear all
           </button>

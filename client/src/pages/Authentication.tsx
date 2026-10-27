@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
 
 import AuthLayout from "../shared/components/layout/AuthLayout";
@@ -12,13 +13,21 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
 
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_BASE_URL;
+    const apiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-    window.location.href = `${apiUrl}/auth/google`;
+    if (!apiUrl) {
+      setServerError(
+        "Google sign-in is not configured. Please use email sign-in or try again later.",
+      );
+      return;
+    }
+
+    window.location.href =
+      `${apiUrl.replace(/\/+$/, "")}/auth/google`;
   };
 
   const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
@@ -33,11 +42,7 @@ export default function SignIn() {
       return;
     }
 
-    if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        trimmedEmail,
-      )
-    ) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setEmailError("Please enter a valid email address.");
       return;
     }
@@ -45,14 +50,20 @@ export default function SignIn() {
     try {
       setLoading(true);
 
-      const result = await requestMagicLink(
-        trimmedEmail,
-      );
+      const result = await requestMagicLink(trimmedEmail);
 
       setMessage(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const serverMessage =
-        error?.response?.data?.message ||
+        (
+          error as {
+            response?: {
+              data?: {
+                message?: string;
+              };
+            };
+          }
+        )?.response?.data?.message ??
         "Unable to send the sign-in link. Please try again.";
 
       setServerError(serverMessage);
@@ -77,10 +88,7 @@ export default function SignIn() {
             backgroundColor: "var(--card)",
           }}
         >
-          <span className="text-base font-bold">
-            G
-          </span>
-
+          <span className="text-base font-bold">G</span>
           Continue with Google
         </button>
       </div>
@@ -136,6 +144,7 @@ export default function SignIn() {
           >
             <Mail
               size={17}
+              aria-hidden="true"
               style={{
                 color: "var(--text-secondary)",
               }}
@@ -143,6 +152,7 @@ export default function SignIn() {
 
             <input
               id="email"
+              name="email"
               type="email"
               value={email}
               onChange={(event) => {
@@ -157,11 +167,18 @@ export default function SignIn() {
                 color: "var(--text-primary)",
               }}
               autoComplete="email"
+              aria-invalid={Boolean(emailError)}
+              aria-describedby={
+                emailError ? "email-error" : undefined
+              }
+              required
             />
           </div>
 
           {emailError && (
             <p
+              id="email-error"
+              role="alert"
               className="mt-2 text-xs"
               style={{
                 color: "var(--primary)",
@@ -174,6 +191,8 @@ export default function SignIn() {
 
         {message && (
           <div
+            role="status"
+            aria-live="polite"
             className="rounded-lg border px-4 py-3 text-sm leading-5"
             style={{
               borderColor: "var(--border)",
@@ -187,6 +206,7 @@ export default function SignIn() {
 
         {serverError && (
           <p
+            role="alert"
             className="text-center text-sm"
             style={{
               color: "var(--primary)",
@@ -204,9 +224,7 @@ export default function SignIn() {
             backgroundColor: "var(--primary)",
           }}
         >
-          {loading
-            ? "Sending..."
-            : "Continue with Email"}
+          {loading ? "Sending..." : "Continue with Email"}
         </button>
       </form>
 

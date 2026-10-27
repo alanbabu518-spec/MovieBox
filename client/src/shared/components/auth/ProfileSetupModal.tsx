@@ -1,68 +1,59 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 
 import { useAuth } from "../../../shared/context/AuthContext";
 import { updateProfile } from "../../../shared/services/auth.api";
 
 const avatars = [
-  {
-    id: "avatar-1",
-    src: null,
-  },
-  {
-    id: "avatar-2",
-    src: "/avatars/avatar1.svg",
-  },
-  {
-    id: "avatar-3",
-    src: "/avatars/avatar2.svg",
-  },
-  {
-    id: "avatar-4",
-    src: "/avatars/avatar3.svg",
-  },
-  {
-    id: "avatar-5",
-    src: "/avatars/avatar4.svg",
-  },
-  {
-    id: "avatar-6",
-    src: "/avatars/avatar5.svg",
-  },
-  {
-    id: "avatar-7",
-    src: "/avatars/avatar6.svg",
-  },
-  {
-    id: "avatar-8",
-    src: "/avatars/avatar7.svg",
-  },
-  {
-    id: "avatar-9",
-    src: "/avatars/avatar8.svg",
-  },
-  {
-    id: "avatar-10",
-    src: "/avatars/avatar9.svg",
-  },
+  { id: "avatar-1", src: null },
+  { id: "avatar-2", src: "/avatars/avatar1.svg" },
+  { id: "avatar-3", src: "/avatars/avatar2.svg" },
+  { id: "avatar-4", src: "/avatars/avatar3.svg" },
+  { id: "avatar-5", src: "/avatars/avatar4.svg" },
+  { id: "avatar-6", src: "/avatars/avatar5.svg" },
+  { id: "avatar-7", src: "/avatars/avatar6.svg" },
+  { id: "avatar-8", src: "/avatars/avatar7.svg" },
+  { id: "avatar-9", src: "/avatars/avatar8.svg" },
+  { id: "avatar-10", src: "/avatars/avatar9.svg" },
 ];
+
+function getErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error
+  ) {
+    const response = error.response;
+
+    if (
+      typeof response === "object" &&
+      response !== null &&
+      "data" in response
+    ) {
+      const data = response.data;
+
+      if (
+        typeof data === "object" &&
+        data !== null &&
+        "message" in data &&
+        typeof data.message === "string" &&
+        data.message.trim()
+      ) {
+        return data.message;
+      }
+    }
+  }
+
+  return "Unable to update your profile. Please try again.";
+}
 
 export default function ProfileSetupModal() {
   const { user, refreshUser } = useAuth();
 
-  const [name, setName] = useState(
-    user?.name ?? "",
-  );
-
-  const [avatar, setAvatar] = useState(
-    user?.avatar ?? "avatar-1",
-  );
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
+  const [name, setName] = useState(user?.name ?? "");
+  const [avatar, setAvatar] = useState(user?.avatar ?? "avatar-1");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   if (!user || user.profileCompleted) {
     return null;
@@ -72,43 +63,29 @@ export default function ProfileSetupModal() {
     name.trim().charAt(0).toUpperCase() ||
     user.name.charAt(0).toUpperCase();
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setError("");
 
     const trimmedName = name.trim();
 
     if (trimmedName.length < 2) {
-      setError(
-        "Username must be at least 2 characters.",
-      );
+      setError("Username must be at least 2 characters.");
       return;
     }
 
     if (trimmedName.length > 30) {
-      setError(
-        "Username must be at most 30 characters.",
-      );
+      setError("Username must be at most 30 characters.");
       return;
     }
 
     try {
       setLoading(true);
 
-      await updateProfile(
-        trimmedName,
-        avatar,
-      );
-
+      await updateProfile(trimmedName, avatar);
       await refreshUser();
-    } catch (error: any) {
-      setError(
-        error?.response?.data?.message ||
-          "Unable to update your profile. Please try again.",
-      );
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -117,12 +94,13 @@ export default function ProfileSetupModal() {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center px-4"
-      style={{
-        backgroundColor:
-          "rgba(0, 0, 0, 0.75)",
-      }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.75)" }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-setup-title"
+        aria-describedby="profile-setup-description"
         className="w-full max-w-md rounded-2xl border p-6 shadow-2xl"
         style={{
           backgroundColor: "var(--card)",
@@ -131,19 +109,17 @@ export default function ProfileSetupModal() {
       >
         <div className="mb-6 text-center">
           <h2
+            id="profile-setup-title"
             className="text-xl font-semibold"
-            style={{
-              color: "var(--text-primary)",
-            }}
+            style={{ color: "var(--text-primary)" }}
           >
             Complete your profile
           </h2>
 
           <p
+            id="profile-setup-description"
             className="mt-2 text-sm"
-            style={{
-              color: "var(--text-secondary)",
-            }}
+            style={{ color: "var(--text-secondary)" }}
           >
             Choose your MovieBox name and avatar.
           </p>
@@ -154,18 +130,20 @@ export default function ProfileSetupModal() {
             <label
               htmlFor="profile-name"
               className="mb-2 block text-sm font-medium"
-              style={{
-                color: "var(--text-primary)",
-              }}
+              style={{ color: "var(--text-primary)" }}
             >
               Username
             </label>
 
             <input
               id="profile-name"
+              name="name"
               type="text"
               value={name}
               maxLength={30}
+              minLength={2}
+              autoComplete="nickname"
+              required
               onChange={(event) => {
                 setName(event.target.value);
                 setError("");
@@ -179,55 +157,45 @@ export default function ProfileSetupModal() {
             />
           </div>
 
-          <div className="mb-6">
-            <p
+          <fieldset className="mb-6">
+            <legend
               className="mb-4 text-sm font-medium"
-              style={{
-                color: "var(--text-primary)",
-              }}
+              style={{ color: "var(--text-primary)" }}
             >
               Choose your avatar
-            </p>
+            </legend>
 
-            <div
-              className="grid grid-cols-5 gap-4"
-              style={{
-                justifyContent: "center",
-              }}
-            >
+            <div className="grid grid-cols-5 gap-4">
               {avatars.map((item) => {
-                const selected =
-                  avatar === item.id;
+                const selected = avatar === item.id;
 
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() =>
-                      setAvatar(item.id)
-                    }
+                    onClick={() => setAvatar(item.id)}
                     aria-label={
                       item.src
                         ? `Choose ${item.id}`
                         : "Choose default avatar"
                     }
-                    className="relative mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 transition-all hover:scale-105"
+                    aria-pressed={selected}
+                    className="relative mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                     style={{
                       borderColor: selected
                         ? "var(--primary)"
                         : "var(--border)",
-                      backgroundColor:
-                        item.src
-                          ? "transparent"
-                          : "var(--primary)",
+                      backgroundColor: item.src
+                        ? "transparent"
+                        : "var(--primary)",
                     }}
                   >
                     {item.src ? (
                       <img
                         src={item.src}
-                        alt={item.id}
-                        width="56"
-                        height="56"
+                        alt=""
+                        width={56}
+                        height={56}
                         className="block h-full w-full object-cover"
                       />
                     ) : (
@@ -239,29 +207,22 @@ export default function ProfileSetupModal() {
                     {selected && (
                       <span
                         className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full text-white"
-                        style={{
-                          backgroundColor:
-                            "var(--primary)",
-                        }}
+                        style={{ backgroundColor: "var(--primary)" }}
                       >
-                        <Check
-                          size={12}
-                          strokeWidth={3}
-                        />
+                        <Check size={12} strokeWidth={3} />
                       </span>
                     )}
                   </button>
                 );
               })}
             </div>
-          </div>
+          </fieldset>
 
           {error && (
             <p
+              role="alert"
               className="mb-4 text-center text-sm"
-              style={{
-                color: "var(--primary)",
-              }}
+              style={{ color: "var(--primary)" }}
             >
               {error}
             </p>
@@ -271,14 +232,9 @@ export default function ProfileSetupModal() {
             type="submit"
             disabled={loading}
             className="h-11 w-full rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              backgroundColor:
-                "var(--primary)",
-            }}
+            style={{ backgroundColor: "var(--primary)" }}
           >
-            {loading
-              ? "Saving..."
-              : "Continue to MovieBox"}
+            {loading ? "Saving..." : "Continue to MovieBox"}
           </button>
         </form>
       </div>

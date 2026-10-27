@@ -23,7 +23,10 @@ import MovieCard from "./MovieCard";
 import type { Movie } from "../../types/movie";
 
 import { useAuth } from "../../context/AuthContext";
-import { useLibraryStore, type LibraryKind } from "../../../store/library.store";
+import {
+  useLibraryStore,
+  type LibraryKind,
+} from "../../../store/library.store";
 import { cn } from "../../lib/cn";
 
 interface CollectionEntry {
@@ -138,31 +141,34 @@ export default function CollectionPage({
   const [view, setView] = useState<ViewMode>(readView);
 
   const fetchItems = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+
     try {
-      setLoading(true);
-      setError(false);
-      setItems(await load());
+      const result = await load();
+      setItems(Array.isArray(result) ? result : []);
     } catch (err) {
       console.error(`Failed to load ${kind}:`, err);
       setError(true);
     } finally {
       setLoading(false);
     }
-    // `load` is a stable module-level function from the page wrapper
+    // `load` is a stable module-level function from the page wrapper.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
 
   useEffect(() => {
-    if (authLoading) {
+    if (authLoading || !user) {
       return;
     }
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    const timeoutId = window.setTimeout(() => {
+      void fetchItems();
+    }, 0);
 
-    void fetchItems();
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [user, authLoading, fetchItems]);
 
   const changeView = (next: ViewMode) => {
@@ -171,21 +177,28 @@ export default function CollectionPage({
     try {
       localStorage.setItem("moviebox-collection-view", next);
     } catch {
-      /* private mode */
+      // Ignore unavailable localStorage, such as private browsing restrictions.
     }
   };
 
   const handleRemove = async (tmdbId: number) => {
+    if (removingId !== null) {
+      return;
+    }
+
     try {
       setRemovingId(tmdbId);
       setRemoveError("");
 
+      // Update the UI only after the server confirms removal.
       await remove(tmdbId);
 
       useLibraryStore.getState().mark(kind, tmdbId, false);
+
       setItems((current) =>
         current.filter((entry) => entry.movie.tmdbId !== tmdbId),
       );
+
       setConfirmId(null);
     } catch (err) {
       console.error(`Failed to remove from ${kind}:`, err);
@@ -202,21 +215,24 @@ export default function CollectionPage({
       ? items.filter((entry) => entry.movie.title.toLowerCase().includes(q))
       : [...items];
 
-    const time = (entry: CollectionEntry) =>
-      entry.movie.releaseDate ? new Date(entry.movie.releaseDate).getTime() : 0;
+    const releaseTime = (entry: CollectionEntry) => {
+      if (!entry.movie.releaseDate) {
+        return 0;
+      }
+
+      const timestamp = new Date(entry.movie.releaseDate).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
 
     if (sort === "title") {
       list.sort((a, b) => a.movie.title.localeCompare(b.movie.title));
+    } else if (sort === "newest") {
+      list.sort((a, b) => releaseTime(b) - releaseTime(a));
+    } else if (sort === "oldest") {
+      list.sort((a, b) => releaseTime(a) - releaseTime(b));
     }
 
-    if (sort === "newest") {
-      list.sort((a, b) => time(b) - time(a));
-    }
-
-    if (sort === "oldest") {
-      list.sort((a, b) => time(a) - time(b));
-    }
-
+    // "recent" preserves the order returned by the API.
     return list;
   }, [items, query, sort]);
 
@@ -239,6 +255,8 @@ export default function CollectionPage({
             <div key={index} className="skeleton aspect-2/3 rounded-xl" />
           ))}
         </div>
+
+        <span className="sr-only">Loading your collection…</span>
       </div>,
     );
   }
@@ -271,8 +289,20 @@ export default function CollectionPage({
         title={`We couldn’t load your ${title.toLowerCase()}`}
         text="Your list is safe. Check your connection and try again."
       >
-        <button type="button" onClick={() => void fetchItems()} className={primary}>
-          <RotateCw size={15} />
+        <button
+          type="button"
+          onClick={() => void fetchItems()}
+          disabled={loading}
+          className={cn(
+            primary,
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          )}
+        >
+          {loading ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <RotateCw size={15} />
+          )}
           Try again
         </button>
       </Message>,
@@ -355,7 +385,9 @@ export default function CollectionPage({
                     onClick={() => changeView(mode)}
                     className={cn(
                       "grid h-9 w-9 place-items-center rounded-lg transition-colors",
-                      view === mode ? "bg-brand text-white" : "text-muted",
+                      view === mode
+                        ? "bg-brand text-white"
+                        : "text-muted hover:text-ink",
                     )}
                   >
                     <ViewIcon size={16} />
@@ -368,9 +400,20 @@ export default function CollectionPage({
       </header>
 
       {removeError && (
-        <p role="alert" className="mt-5 text-sm text-red-400">
-          {removeError}
-        </p>
+        <div
+          role="alert"
+          className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"
+        >
+          <span>{removeError}</span>
+          <button
+            type="button"
+            onClick={() => setRemoveError("")}
+            aria-label="Dismiss removal error"
+            className="shrink-0 rounded-md p-1 hover:bg-red-500/10"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       <div className="mt-8">
@@ -402,6 +445,8 @@ export default function CollectionPage({
           <ul role="list" className={GRID}>
             {visible.map((entry) => {
               const id = entry.movie.tmdbId;
+              const isConfirming = confirmId === id;
+              const isRemoving = removingId === id;
 
               return (
                 <li key={entry.id} className="relative min-w-0">
@@ -410,8 +455,12 @@ export default function CollectionPage({
                     action={
                       <button
                         type="button"
-                        aria-label={`Remove ${entry.movie.title}`}
-                        onClick={() => setConfirmId(id)}
+                        aria-label={`Remove ${entry.movie.title} from ${title}`}
+                        aria-expanded={isConfirming}
+                        onClick={() => {
+                          setRemoveError("");
+                          setConfirmId(isConfirming ? null : id);
+                        }}
                         className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-brand backdrop-blur-md before:absolute before:-inset-1.5 before:content-[''] active:scale-90"
                       >
                         <Icon size={15} fill="currentColor" strokeWidth={1.5} />
@@ -419,10 +468,11 @@ export default function CollectionPage({
                     }
                   />
 
-                  {confirmId === id && (
+                  {isConfirming && (
                     <div
                       role="alertdialog"
                       aria-label={`Remove ${entry.movie.title}?`}
+                      aria-modal="true"
                       className="animate-fade absolute inset-x-0 top-0 z-20 flex aspect-2/3 flex-col items-center justify-center gap-3 rounded-xl bg-black/85 p-3 text-center"
                     >
                       <p className="text-sm font-semibold text-white">
@@ -433,11 +483,11 @@ export default function CollectionPage({
                         <button
                           type="button"
                           autoFocus
-                          disabled={removingId === id}
+                          disabled={isRemoving}
                           onClick={() => void handleRemove(id)}
                           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60"
                         >
-                          {removingId === id ? (
+                          {isRemoving ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
                             <Check size={14} />
@@ -447,9 +497,9 @@ export default function CollectionPage({
 
                         <button
                           type="button"
-                          disabled={removingId === id}
+                          disabled={isRemoving}
                           onClick={() => setConfirmId(null)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/25 px-3 text-xs font-semibold text-white"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/25 px-3 text-xs font-semibold text-white disabled:opacity-60"
                         >
                           <X size={14} />
                           Keep
@@ -468,6 +518,8 @@ export default function CollectionPage({
               const year = entry.movie.releaseDate
                 ? new Date(entry.movie.releaseDate).getFullYear()
                 : null;
+              const isConfirming = confirmId === id;
+              const isRemoving = removingId === id;
 
               return (
                 <li
@@ -476,7 +528,7 @@ export default function CollectionPage({
                 >
                   <Link
                     to={`/movie/${id}`}
-                    className="flex min-w-0 flex-1 items-center gap-3"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     <span className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-elevated">
                       {entry.movie.posterPath && (
@@ -494,7 +546,7 @@ export default function CollectionPage({
                         {entry.movie.title}
                       </span>
 
-                      {year && (
+                      {year && Number.isFinite(year) && (
                         <span className="mt-1 block text-xs text-muted">
                           {year}
                         </span>
@@ -502,21 +554,25 @@ export default function CollectionPage({
                     </span>
                   </Link>
 
-                  {confirmId === id ? (
+                  {isConfirming ? (
                     <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
-                        disabled={removingId === id}
+                        disabled={isRemoving}
                         onClick={() => void handleRemove(id)}
-                        className="h-9 rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60"
                       >
+                        {isRemoving && (
+                          <Loader2 size={13} className="animate-spin" />
+                        )}
                         Remove
                       </button>
 
                       <button
                         type="button"
+                        disabled={isRemoving}
                         onClick={() => setConfirmId(null)}
-                        className="h-9 rounded-lg border border-line px-3 text-xs font-semibold"
+                        className="h-9 rounded-lg border border-line px-3 text-xs font-semibold disabled:opacity-60"
                       >
                         Keep
                       </button>
@@ -524,9 +580,12 @@ export default function CollectionPage({
                   ) : (
                     <button
                       type="button"
-                      aria-label={`Remove ${entry.movie.title}`}
-                      onClick={() => setConfirmId(id)}
-                      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/8 text-brand active:scale-90"
+                      aria-label={`Remove ${entry.movie.title} from ${title}`}
+                      onClick={() => {
+                        setRemoveError("");
+                        setConfirmId(id);
+                      }}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/8 text-brand transition-colors hover:bg-white/15 active:scale-90"
                     >
                       <Icon size={17} fill="currentColor" strokeWidth={1.5} />
                     </button>

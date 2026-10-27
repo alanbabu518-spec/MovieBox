@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components -- Provider and hook intentionally live together. */
+
 import {
   createContext,
   useContext,
@@ -30,13 +32,16 @@ interface AuthProviderProps {
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(
-    null,
-  );
-
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshUser = async () => {
+  /**
+   * Refreshes the current user's authentication state.
+   *
+   * If the user is not authenticated or the request fails,
+   * the frontend treats the user as signed out.
+   */
+  const refreshUser = async (): Promise<void> => {
     try {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
@@ -45,24 +50,49 @@ export function AuthProvider({
     }
   };
 
-  const logout = async () => {
-    await logoutUser();
-    setUser(null);
+  /**
+   * Logs out the user.
+   *
+   * Local authentication state is cleared in finally,
+   * regardless of whether the backend request succeeds.
+   */
+  const logout = async (): Promise<void> => {
+    try {
+      await logoutUser();
+    } finally {
+      setUser(null);
+    }
   };
 
+  /**
+   * Checks the existing session when the application starts.
+   */
   useEffect(() => {
-    const loadUser = async () => {
+    let isMounted = true;
+
+    const loadUser = async (): Promise<void> => {
       try {
         const currentUser = await getCurrentUser();
-        setUser(currentUser);
+
+        if (isMounted) {
+          setUser(currentUser);
+        }
       } catch {
-        setUser(null);
+        if (isMounted) {
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadUser();
+    void loadUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -79,10 +109,15 @@ export function AuthProvider({
   );
 }
 
-export function useAuth() {
+/**
+ * Accesses authentication state and actions.
+ *
+ * Must be called inside a component rendered within AuthProvider.
+ */
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 
-  if (!context) {
+  if (context === undefined) {
     throw new Error(
       "useAuth must be used inside AuthProvider",
     );
