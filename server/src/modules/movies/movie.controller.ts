@@ -12,10 +12,10 @@ import {
 import {
   autocompleteMoviesSchema,
   searchMoviesSchema,
-} from "../movies/movie.validator.js";
+} from "./movie.validator.js";
 
-import { getMovieSuggestions } from "../movies/autocomplete.service.js";
-import { ingestMovieCatalog } from "../movies/movieCatalog.service.js";
+import { getMovieSuggestions } from "./autocomplete.service.js";
+import { ingestMovieCatalog } from "./movieCatalog.service.js";
 
 import {
   getMovieCredits,
@@ -24,7 +24,8 @@ import {
   getMovieVideos,
   getMovieWatchProviders,
   getSimilarMovies,
-} from "../movies/movieDetails.service";
+  getMovieTMDBReviews,
+} from "./movieDetails.service";
 
 import { AppError } from "../../shared/utils/appError.js";
 
@@ -39,8 +40,7 @@ function getMovieFilters(req: Request) {
     page?: number;
   } = {};
 
-  const { genre, language, year, minRating, page } =
-    req.query;
+  const { genre, language, year, minRating, page } = req.query;
 
   if (genre !== undefined) {
     if (
@@ -85,20 +85,14 @@ function getMovieFilters(req: Request) {
       Number(minRating) < 0 ||
       Number(minRating) > 10
     ) {
-      throw new AppError(
-        "Minimum rating must be between 0 and 10",
-        400,
-      );
+      throw new AppError("Minimum rating must be between 0 and 10", 400);
     }
 
     params.minRating = minRating;
   }
 
   if (page !== undefined) {
-    if (
-      typeof page !== "string" ||
-      !/^\d+$/.test(page)
-    ) {
+    if (typeof page !== "string" || !/^\d+$/.test(page)) {
       throw new AppError("Invalid page number", 400);
     }
 
@@ -109,10 +103,7 @@ function getMovieFilters(req: Request) {
       parsedPage < 1 ||
       parsedPage > 500
     ) {
-      throw new AppError(
-        "Page must be between 1 and 500",
-        400,
-      );
+      throw new AppError("Page must be between 1 and 500", 400);
     }
 
     params.page = parsedPage;
@@ -121,104 +112,10 @@ function getMovieFilters(req: Request) {
   return params;
 }
 
-export const getTrending = async (
-  req: Request,
-  res: Response,
-) => {
-  const filters = getMovieFilters(req);
-  const movies = await getTrendingMovies(filters);
-
-  res.status(200).json({
-    success: true,
-    data: movies,
-  });
-};
-
-export const getLatest = async (
-  _req: Request,
-  res: Response,
-) => {
-  const movies = await getLatestMovies();
-
-  res.status(200).json({
-    success: true,
-    data: movies,
-  });
-};
-
-export const getPopular = async (
-  req: Request,
-  res: Response,
-) => {
-  const filters = getMovieFilters(req);
-  const movies = await getPopularMovies(filters);
-
-  res.status(200).json({
-    success: true,
-    data: movies,
-  });
-};
-
-export const getUpcoming = async (
-  req: Request,
-  res: Response,
-) => {
-  const filters = getMovieFilters(req);
-  const movies = await getUpcomingMovies(filters);
-
-  res.status(200).json({
-    success: true,
-    data: movies,
-  });
-};
-
-export const search = async (
-  req: Request,
-  res: Response,
-) => {
-  const { query, page } = searchMoviesSchema.parse(req.query);
-  const movies = await searchMovies(query, page);
-
-  res.status(200).json({
-    success: true,
-    data: movies,
-  });
-};
-
-export const autocomplete = (
-  req: Request,
-  res: Response,
-) => {
-  const { query, limit } =
-    autocompleteMoviesSchema.parse(req.query);
-
-  const suggestions = getMovieSuggestions(query, limit);
-
-  res.status(200).json({
-    success: true,
-    data: suggestions,
-  });
-};
-
-export const ingestCatalog = async (
-  _req: Request,
-  res: Response,
-) => {
-  const result = await ingestMovieCatalog(5);
-
-  res.status(200).json({
-    success: true,
-    data: result,
-  });
-};
-
 function getValidMovieId(req: Request): number {
   const rawId = req.params.tmdbId;
 
-  if (
-    typeof rawId !== "string" ||
-    !/^[1-9]\d*$/.test(rawId)
-  ) {
+  if (typeof rawId !== "string" || !/^[1-9]\d*$/.test(rawId)) {
     throw new AppError("Invalid movie ID", 400);
   }
 
@@ -231,10 +128,75 @@ function getValidMovieId(req: Request): number {
   return tmdbId;
 }
 
-export const getDetails = async (
-  req: Request,
-  res: Response,
-) => {
+export const getTrending = async (req: Request, res: Response) => {
+  const filters = getMovieFilters(req);
+  const movies = await getTrendingMovies(filters);
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const getLatest = async (_req: Request, res: Response) => {
+  const movies = await getLatestMovies();
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const getPopular = async (req: Request, res: Response) => {
+  const filters = getMovieFilters(req);
+  const movies = await getPopularMovies(filters);
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const getUpcoming = async (req: Request, res: Response) => {
+  const filters = getMovieFilters(req);
+  const movies = await getUpcomingMovies(filters);
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const search = async (req: Request, res: Response) => {
+  const { query, page } = searchMoviesSchema.parse(req.query);
+  const movies = await searchMovies(query, page);
+
+  res.status(200).json({
+    success: true,
+    data: movies,
+  });
+};
+
+export const autocomplete = (req: Request, res: Response) => {
+  const { query, limit } = autocompleteMoviesSchema.parse(req.query);
+  const suggestions = getMovieSuggestions(query, limit);
+
+  res.status(200).json({
+    success: true,
+    data: suggestions,
+  });
+};
+
+export const ingestCatalog = async (_req: Request, res: Response) => {
+  const result = await ingestMovieCatalog(5);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+};
+
+export const getDetails = async (req: Request, res: Response) => {
   const movie = await getMovieDetails(getValidMovieId(req));
 
   res.status(200).json({
@@ -243,10 +205,7 @@ export const getDetails = async (
   });
 };
 
-export const getCredits = async (
-  req: Request,
-  res: Response,
-) => {
+export const getCredits = async (req: Request, res: Response) => {
   const credits = await getMovieCredits(getValidMovieId(req));
 
   res.status(200).json({
@@ -255,10 +214,7 @@ export const getCredits = async (
   });
 };
 
-export const getVideos = async (
-  req: Request,
-  res: Response,
-) => {
+export const getVideos = async (req: Request, res: Response) => {
   const videos = await getMovieVideos(getValidMovieId(req));
 
   res.status(200).json({
@@ -267,10 +223,7 @@ export const getVideos = async (
   });
 };
 
-export const getImages = async (
-  req: Request,
-  res: Response,
-) => {
+export const getImages = async (req: Request, res: Response) => {
   const images = await getMovieImages(getValidMovieId(req));
 
   res.status(200).json({
@@ -279,10 +232,7 @@ export const getImages = async (
   });
 };
 
-export const getSimilar = async (
-  req: Request,
-  res: Response,
-) => {
+export const getSimilar = async (req: Request, res: Response) => {
   const movies = await getSimilarMovies(getValidMovieId(req));
 
   res.status(200).json({
@@ -291,13 +241,8 @@ export const getSimilar = async (
   });
 };
 
-export const getWatchProviders = async (
-  req: Request,
-  res: Response,
-) => {
-  const providers = await getMovieWatchProviders(
-    getValidMovieId(req),
-  );
+export const getWatchProviders = async (req: Request, res: Response) => {
+  const providers = await getMovieWatchProviders(getValidMovieId(req));
 
   res.status(200).json({
     success: true,
@@ -305,15 +250,38 @@ export const getWatchProviders = async (
   });
 };
 
-export const getDiscover = async (
-  req: Request,
-  res: Response,
-) => {
+export const getDiscover = async (req: Request, res: Response) => {
   const params = getMovieFilters(req);
   const movies = await discoverMovies(params);
 
   res.status(200).json({
     success: true,
     data: movies,
+  });
+};
+
+export const getTMDBReviews = async (req: Request, res: Response) => {
+  const rawPage = req.query.page;
+  let page = 1;
+
+  if (rawPage !== undefined) {
+    if (
+      typeof rawPage !== "string" ||
+      !/^\d+$/.test(rawPage) ||
+      !Number.isSafeInteger(Number(rawPage)) ||
+      Number(rawPage) < 1 ||
+      Number(rawPage) > 500
+    ) {
+      throw new AppError("Page must be between 1 and 500", 400);
+    }
+
+    page = Number(rawPage);
+  }
+
+  const reviews = await getMovieTMDBReviews(getValidMovieId(req), page);
+
+  res.status(200).json({
+    success: true,
+    data: reviews,
   });
 };

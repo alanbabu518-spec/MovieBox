@@ -1,5 +1,11 @@
 import { tmdbClient } from "../../integrations/tmdb/tmdb.service";
-import { handleTMDBError } from "../../integrations/tmdb/tmdbRequest.service.js";
+import {
+  handleTMDBError,
+} from "../../integrations/tmdb/tmdbRequest.service.js";
+import {
+  getCachedJson,
+  setCachedJson,
+} from "../../shared/utils/cache.js";
 import {
   TMDBCredits,
   TMDBImagesResponse,
@@ -9,6 +15,7 @@ import {
   TMDBWatchProvidersResponse,
 } from "../../shared/types/tmdb.js";
 
+// Get complete movie details
 export const getMovieDetails = async (tmdbId: number) => {
   try {
     const [
@@ -29,21 +36,9 @@ export const getMovieDetails = async (tmdbId: number) => {
       ),
     ]);
 
-    const similarResults = similarResponse.data.results.length
-      ? similarResponse.data.results
-      : recommendationsResponse.data.results;
-
-    const similarPage = similarResponse.data.results.length
-      ? similarResponse.data.page
-      : recommendationsResponse.data.page;
-
-    const similarTotalPages = similarResponse.data.results.length
-      ? similarResponse.data.total_pages
-      : recommendationsResponse.data.total_pages;
-
-    const similarTotalResults = similarResponse.data.results.length
-      ? similarResponse.data.total_results
-      : recommendationsResponse.data.total_results;
+    const similar = similarResponse.data.results.length > 0
+      ? similarResponse.data
+      : recommendationsResponse.data;
 
     return {
       ...movieResponse.data,
@@ -52,10 +47,10 @@ export const getMovieDetails = async (tmdbId: number) => {
         results: videosResponse.data.results,
       },
       similar: {
-        page: similarPage,
-        total_pages: similarTotalPages,
-        total_results: similarTotalResults,
-        results: similarResults,
+        page: similar.page,
+        total_pages: similar.total_pages,
+        total_results: similar.total_results,
+        results: similar.results,
       },
     };
   } catch (error) {
@@ -63,6 +58,7 @@ export const getMovieDetails = async (tmdbId: number) => {
   }
 };
 
+// Get movie credits
 export const getMovieCredits = async (tmdbId: number) => {
   try {
     const response = await tmdbClient.get<TMDBCredits>(
@@ -75,6 +71,7 @@ export const getMovieCredits = async (tmdbId: number) => {
   }
 };
 
+// Get movie videos
 export const getMovieVideos = async (tmdbId: number) => {
   try {
     const response = await tmdbClient.get<TMDBVideosResponse>(
@@ -87,6 +84,7 @@ export const getMovieVideos = async (tmdbId: number) => {
   }
 };
 
+// Get movie images
 export const getMovieImages = async (tmdbId: number) => {
   try {
     const response = await tmdbClient.get<TMDBImagesResponse>(
@@ -99,6 +97,7 @@ export const getMovieImages = async (tmdbId: number) => {
   }
 };
 
+// Get similar movies, falling back to recommendations when necessary
 export const getSimilarMovies = async (tmdbId: number) => {
   try {
     const [similarResponse, recommendationsResponse] =
@@ -111,37 +110,89 @@ export const getSimilarMovies = async (tmdbId: number) => {
         ),
       ]);
 
-    const movies = similarResponse.data.results.length
-      ? similarResponse.data.results
-      : recommendationsResponse.data.results;
-
-    const page = similarResponse.data.results.length
-      ? similarResponse.data.page
-      : recommendationsResponse.data.page;
-
-    const totalPages = similarResponse.data.results.length
-      ? similarResponse.data.total_pages
-      : recommendationsResponse.data.total_pages;
-
-    const totalResults = similarResponse.data.results.length
-      ? similarResponse.data.total_results
-      : recommendationsResponse.data.total_results;
+    const result = similarResponse.data.results.length > 0
+      ? similarResponse.data
+      : recommendationsResponse.data;
 
     return {
-      page,
-      totalPages,
-      totalResults,
-      movies,
+      page: result.page,
+      totalPages: result.total_pages,
+      totalResults: result.total_results,
+      movies: result.results,
     };
   } catch (error) {
     return handleTMDBError(error);
   }
 };
 
+// Get movie watch providers
 export const getMovieWatchProviders = async (tmdbId: number) => {
   try {
     const response = await tmdbClient.get<TMDBWatchProvidersResponse>(
       `/movie/${tmdbId}/watch/providers`,
+    );
+
+    return response.data;
+  } catch (error) {
+    return handleTMDBError(error);
+  }
+};
+
+// TMDB audience reviews
+export interface TMDBMovieReview {
+  id: string;
+  author: string;
+  author_details: {
+    name: string;
+    username: string;
+    avatar_path: string | null;
+    rating: number | null;
+  };
+  content: string;
+  created_at: string;
+  updated_at: string;
+  url: string;
+}
+
+export interface TMDBMovieReviewsResponse {
+  id: number;
+  page: number;
+  results: TMDBMovieReview[];
+  total_pages: number;
+  total_results: number;
+}
+
+const TMDB_REVIEWS_CACHE_TTL_SECONDS = 6 * 60 * 60;
+
+// Get TMDB audience reviews with caching
+export const getMovieTMDBReviews = async (
+  tmdbId: number,
+  page = 1,
+): Promise<TMDBMovieReviewsResponse> => {
+  const cacheKey = `moviebox:cache:tmdb-reviews:${tmdbId}:page:${page}`;
+
+  const cached =
+    await getCachedJson<TMDBMovieReviewsResponse>(cacheKey);
+
+  if (cached !== null) {
+    return cached;
+  }
+
+  try {
+    const response = await tmdbClient.get<TMDBMovieReviewsResponse>(
+      `/movie/${tmdbId}/reviews`,
+      {
+        params: {
+          page,
+          language: "en-US",
+        },
+      },
+    );
+
+    await setCachedJson(
+      cacheKey,
+      response.data,
+      TMDB_REVIEWS_CACHE_TTL_SECONDS,
     );
 
     return response.data;

@@ -147,6 +147,29 @@ export interface Review {
   };
 }
 
+export interface TMDBReview {
+  id: string;
+  author: string;
+  author_details: {
+    name: string;
+    username: string;
+    avatar_path: string | null;
+    rating: number | null;
+  };
+  content: string;
+  created_at: string;
+  updated_at: string;
+  url: string;
+}
+
+export interface TMDBReviewsPage {
+  id: number;
+  page: number;
+  results: TMDBReview[];
+  total_pages: number;
+  total_results: number;
+}
+
 export interface RatingStats {
   average: number;
   total: number;
@@ -188,9 +211,7 @@ export interface MovieFilterParams {
   page?: number;
 }
 
-function normalizeMovie(
-  movie: NormalizedMovie,
-): TMDBMovie {
+function normalizeMovie(movie: NormalizedMovie): TMDBMovie {
   return {
     id: movie.id,
     title: movie.title,
@@ -225,23 +246,13 @@ function buildFilterParams(
   params: MovieFilterParams = {},
 ) {
   return {
-    ...(params.genre
-      ? { genre: params.genre }
-      : {}),
-    ...(params.language
-      ? { language: params.language }
-      : {}),
-    ...(params.year
-      ? { year: params.year }
-      : {}),
+    ...(params.genre ? { genre: params.genre } : {}),
+    ...(params.language ? { language: params.language } : {}),
+    ...(params.year ? { year: params.year } : {}),
     ...(params.minRating
-      ? {
-          minRating: params.minRating,
-        }
+      ? { minRating: params.minRating }
       : {}),
-    ...(params.page
-      ? { page: params.page }
-      : {}),
+    ...(params.page ? { page: params.page } : {}),
   };
 }
 
@@ -263,16 +274,10 @@ function normalizeMovieDetails(
 
   return {
     ...movie,
-    genres: Array.isArray(movie.genres)
-      ? movie.genres
-      : [],
+    genres: Array.isArray(movie.genres) ? movie.genres : [],
     credits: {
-      cast: Array.isArray(credits.cast)
-        ? credits.cast
-        : [],
-      crew: Array.isArray(credits.crew)
-        ? credits.crew
-        : [],
+      cast: Array.isArray(credits.cast) ? credits.cast : [],
+      crew: Array.isArray(credits.crew) ? credits.crew : [],
     },
     videos: {
       results: Array.isArray(videos.results)
@@ -290,17 +295,12 @@ function normalizeMovieDetails(
 export async function getTrendingMovies(
   params: MovieFilterParams = {},
 ): Promise<MovieListResult> {
-  const response =
-    await api.get<MovieApiResponse>(
-      "/movies/trending",
-      {
-        params: buildFilterParams(params),
-      },
-    );
-
-  return normalizeMovieResult(
-    response.data.data,
+  const response = await api.get<MovieApiResponse>(
+    "/movies/trending",
+    { params: buildFilterParams(params) },
   );
+
+  return normalizeMovieResult(response.data.data);
 }
 
 export type MovieIndustry =
@@ -314,68 +314,51 @@ export type MovieIndustry =
 export async function getIndustryTrendingMovies(
   industry: MovieIndustry,
 ): Promise<TMDBMovie[]> {
-  const response =
-    await api.get<MovieListData>(
-      `/movies/trending/${industry}`,
-    );
-
-  return normalizeMovieList(
-    response.data.movies,
+  const response = await api.get<MovieListData>(
+    `/movies/trending/${industry}`,
   );
+
+  return normalizeMovieList(response.data.movies);
 }
 
 export async function getPopularMovies(
   params: MovieFilterParams = {},
 ): Promise<MovieListResult> {
-  const response =
-    await api.get<MovieApiResponse>(
-      "/movies/popular",
-      {
-        params: buildFilterParams(params),
-      },
-    );
-
-  return normalizeMovieResult(
-    response.data.data,
+  const response = await api.get<MovieApiResponse>(
+    "/movies/popular",
+    { params: buildFilterParams(params) },
   );
+
+  return normalizeMovieResult(response.data.data);
 }
 
 export async function getUpcomingMovies(
   params: MovieFilterParams = {},
 ): Promise<MovieListResult> {
-  const response =
-    await api.get<MovieApiResponse>(
-      "/movies/upcoming",
-      {
-        params: buildFilterParams(params),
-      },
-    );
-
-  return normalizeMovieResult(
-    response.data.data,
+  const response = await api.get<MovieApiResponse>(
+    "/movies/upcoming",
+    { params: buildFilterParams(params) },
   );
+
+  return normalizeMovieResult(response.data.data);
 }
 
 export async function getMovieDetails(
   id: string,
 ): Promise<MovieDetails> {
-  const response =
-    await api.get<MovieDetailsResponse>(
-      `/movies/${id}`,
-    );
-
-  return normalizeMovieDetails(
-    response.data.data,
+  const response = await api.get<MovieDetailsResponse>(
+    `/movies/${id}`,
   );
+
+  return normalizeMovieDetails(response.data.data);
 }
 
 export async function getWatchProviders(
   tmdbId: string,
 ): Promise<WatchProviders> {
-  const response =
-    await api.get<WatchProvidersResponse>(
-      `/movies/${tmdbId}/watch/providers`,
-    );
+  const response = await api.get<WatchProvidersResponse>(
+    `/movies/${tmdbId}/watch/providers`,
+  );
 
   return response.data.data;
 }
@@ -391,6 +374,24 @@ export async function getRecommendations(): Promise<
   return response.data.data;
 }
 
+/**
+ * Fetch audience reviews published on TMDB.
+ * These are separate from MovieBox community reviews.
+ */
+export async function getTMDBReviews(
+  tmdbId: string,
+  page = 1,
+): Promise<TMDBReviewsPage> {
+  const response = await api.get<{
+    success: boolean;
+    data: TMDBReviewsPage;
+  }>(`/movies/${tmdbId}/tmdb-reviews`, {
+    params: { page },
+  });
+
+  return response.data.data;
+}
+
 export async function getReviews(
   tmdbId: string,
 ): Promise<Review[]> {
@@ -398,8 +399,7 @@ export async function getReviews(
     `/movies/${tmdbId}/reviews`,
   );
 
-  const data =
-    response.data?.data ?? response.data;
+  const data = response.data?.data ?? response.data;
 
   if (Array.isArray(data)) {
     return data;
@@ -431,8 +431,7 @@ export async function getRatingStats(
     `/movies/${tmdbId}/rating`,
   );
 
-  const data =
-    response.data?.data ?? response.data;
+  const data = response.data?.data ?? response.data;
 
   return {
     average: Number(data?.average ?? 0),
@@ -457,13 +456,10 @@ export async function rateMovie(
 ): Promise<RatingStats> {
   const response = await api.post(
     `/movies/${tmdbId}/rating`,
-    {
-      rating: value,
-    },
+    { rating: value },
   );
 
-  const data =
-    response.data?.data ?? response.data;
+  const data = response.data?.data ?? response.data;
 
   return {
     average: Number(data?.average ?? 0),
@@ -486,34 +482,21 @@ export async function searchMovies(
   query: string,
   page: number = 1,
 ): Promise<MovieListResult> {
-  const response =
-    await api.get<MovieApiResponse>(
-      "/movies/search",
-      {
-        params: {
-          query,
-          page,
-        },
-      },
-    );
-
-  return normalizeMovieResult(
-    response.data.data,
+  const response = await api.get<MovieApiResponse>(
+    "/movies/search",
+    { params: { query, page } },
   );
+
+  return normalizeMovieResult(response.data.data);
 }
 
 export async function discoverMovies(
   params: MovieFilterParams = {},
 ): Promise<MovieListResult> {
-  const response =
-    await api.get<MovieApiResponse>(
-      "/movies/discover",
-      {
-        params: buildFilterParams(params),
-      },
-    );
-
-  return normalizeMovieResult(
-    response.data.data,
+  const response = await api.get<MovieApiResponse>(
+    "/movies/discover",
+    { params: buildFilterParams(params) },
   );
+
+  return normalizeMovieResult(response.data.data);
 }

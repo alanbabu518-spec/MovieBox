@@ -133,6 +133,39 @@ export default function Movies() {
   const [totalResults, setTotalResults] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [trendingBackdrops, setTrendingBackdrops] = useState<string[]>([]);
+  const [activeBackdrop, setActiveBackdrop] = useState(0);
+
+  /* Load trending movie backdrops for the rotating Discover hero. */
+  useEffect(() => {
+    let cancelled = false;
+    const loadBackdrops = async () => {
+      try {
+        const result = await getTrendingMovies({ page: 1 });
+        const images = result.movies
+          .filter((movie) => movie.backdrop_path)
+          .slice(0, 8)
+          .map(
+            (movie) => `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`,
+          );
+        if (!cancelled) setTrendingBackdrops(images);
+      } catch (err) {
+        console.error("Failed to load trending movie backdrops:", err);
+      }
+    };
+    void loadBackdrops();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (trendingBackdrops.length < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveBackdrop((current) => (current + 1) % trendingBackdrops.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [trendingBackdrops]);
 
   /* A search started from the navbar arrives as ?q= */
   const urlQuery = searchParams.get("q");
@@ -366,14 +399,25 @@ export default function Movies() {
       <Navbar />
 
       <main>
-        {/* Banner */}
+        {/* Discover hero with rotating trending-movie backdrops */}
         <section className="relative isolate overflow-hidden border-b border-line">
+          <div aria-hidden="true" className="absolute inset-0 -z-20 bg-surface">
+            {trendingBackdrops.map((backdrop, index) => (
+              <div
+                key={backdrop}
+                className={cn(
+                  "absolute inset-0 bg-cover bg-center transition-opacity duration-[1200ms] ease-in-out motion-reduce:transition-none",
+                  index === activeBackdrop ? "opacity-100" : "opacity-0",
+                )}
+                style={{ backgroundImage: `url("${backdrop}")` }}
+              />
+            ))}
+          </div>
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-10 bg-[radial-gradient(40rem_18rem_at_85%_0%,var(--glow),transparent_70%),linear-gradient(180deg,var(--surface),transparent)]"
+            className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(8,10,15,0.94)_0%,rgba(8,10,15,0.78)_48%,rgba(8,10,15,0.48)_100%),linear-gradient(0deg,rgba(8,10,15,0.88)_0%,rgba(8,10,15,0.18)_70%),radial-gradient(40rem_18rem_at_85%_0%,var(--glow),transparent_70%)]"
           />
-
-          <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-6 sm:px-6 sm:pb-9 sm:pt-9 lg:px-8">
+          <div className="mx-auto max-w-[1400px] px-4 pb-7 pt-7 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
             <Link
               to="/"
               className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-ink md:hidden"
@@ -382,17 +426,17 @@ export default function Movies() {
               Home
             </Link>
 
-            <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-5xl">
-              Discover <span className="text-muted">Incredible Stories</span>
+            <h1 className="max-w-3xl font-display text-3xl font-extrabold tracking-tight text-white drop-shadow-sm sm:text-5xl lg:text-6xl">
+              Discover <span className="text-white/75">Incredible Stories</span>
             </h1>
 
-            <p className="mt-2 max-w-xl text-sm text-muted sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
               Search thousands of movies and find exactly what you feel like
               watching.
             </p>
 
-            <div className="mt-5 flex max-w-3xl items-center gap-2 rounded-2xl border border-line bg-surface p-1.5 pl-4 focus-within:border-brand/70">
-              <Search size={18} className="shrink-0 text-muted" />
+            <div className="mt-5 flex max-w-3xl items-center gap-2 rounded-2xl border border-white/20 bg-black/40 p-1.5 pl-4 shadow-xl shadow-black/10 backdrop-blur-md focus-within:border-brand/70">
+              <Search size={18} className="shrink-0 text-white/70" />
 
               <input
                 type="search"
@@ -403,7 +447,7 @@ export default function Movies() {
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search movies…"
                 aria-label="Search movies"
-                className="h-10 min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted"
+                className="h-10 min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/60"
               />
 
               {query && (
@@ -423,7 +467,7 @@ export default function Movies() {
             </div>
 
             <div className="scrollbar-none -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-              <span className="shrink-0 self-center text-xs text-muted">
+              <span className="shrink-0 self-center text-xs font-medium text-white/70">
                 Popular searches
               </span>
 
@@ -432,7 +476,7 @@ export default function Movies() {
                   key={term}
                   type="button"
                   onClick={() => setQuery(term)}
-                  className="shrink-0 rounded-full border border-line bg-white/5 px-3 py-1.5 text-xs font-medium text-muted transition-[transform,color] duration-150 hover:text-ink active:scale-95"
+                  className="shrink-0 rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm transition-[transform,background-color,color] duration-150 hover:bg-white/15 hover:text-white active:scale-95"
                 >
                   {term}
                 </button>

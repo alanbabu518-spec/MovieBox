@@ -10,6 +10,7 @@ import {
   getPopular,
   getSimilar,
   getTrending,
+  getTMDBReviews,
   getUpcoming,
   getVideos,
   getWatchProviders,
@@ -51,12 +52,17 @@ router.get("/popular", getPopular);
 router.get("/upcoming", getUpcoming);
 router.get("/search", search);
 router.get("/autocomplete", autocomplete);
+router.get("/discover", getDiscover);
+
 router.get("/:tmdbId/credits", getCredits);
 router.get("/:tmdbId/videos", getVideos);
 router.get("/:tmdbId/images", getImages);
 router.get("/:tmdbId/similar", getSimilar);
 router.get("/:tmdbId/watch/providers", getWatchProviders);
-router.get("/discover", getDiscover);
+
+// TMDB audience reviews.
+router.get("/:tmdbId/tmdb-reviews", getTMDBReviews);
+
 router.get("/:tmdbId", getDetails);
 
 // Protected route: recommendations require authentication.

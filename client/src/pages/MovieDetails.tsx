@@ -384,7 +384,7 @@ export default function MovieDetails() {
           />
 
           <MovieReviews
-            key={`reviews-${reviewsVersion}`}
+            key={`movie-reviews-${reviewsVersion}`}
             tmdbId={String(movie.id)}
           />
 
