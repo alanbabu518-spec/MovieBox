@@ -7,6 +7,7 @@ import {
   logout,
   requestEmailLogin,
   verifyEmailMagicLink,
+  deleteAccount,
 } from "./auth.controller.js";
 
 import { updateUserProfile } from "./profile.controller.js";
@@ -40,5 +41,8 @@ router.patch("/profile", authenticate, updateUserProfile);
 
 // Clear the authentication cookie on logout.
 router.post("/logout", logout);
+
+// Permanently delete the authenticated user's account and personal data.
+router.delete("/account", authenticate, deleteAccount);
 
 export default router;

@@ -166,3 +166,52 @@ export const logout = async (_req: Request, res: Response) => {
     message: "Logged out successfully",
   });
 };
+
+export const deleteAccount = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    res.clearCookie(env.cookieName, {
+      httpOnly: true,
+      secure: env.nodeEnv === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    return res.status(401).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  // Prisma's onDelete: Cascade removes the user's related records.
+  await prisma.user.delete({
+    where: { id: userId },
+  });
+
+  // Clear the authentication cookie after successful deletion.
+  res.clearCookie(env.cookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Your account and associated personal data have been permanently deleted.",
+  });
+};

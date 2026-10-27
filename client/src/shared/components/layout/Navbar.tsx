@@ -7,13 +7,16 @@ import {
 } from "react-router-dom";
 import {
   Bookmark,
+  ChevronDown,
   Compass,
   Heart,
   House,
+  LogOut,
   Moon,
   Search,
   Sun,
   User,
+  Users,
   X,
 } from "lucide-react";
 
@@ -42,10 +45,30 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", to: "/" },
-  { label: "Movies", to: "/movies?category=popular", category: "popular", auth: true },
-  { label: "Trending", to: "/movies?category=trending", category: "trending", auth: true },
-  { label: "Upcoming", to: "/movies?category=upcoming", category: "upcoming", auth: true },
-  { label: "AI Search", to: "/ai/search", auth: true, dot: true },
+  {
+    label: "Movies",
+    to: "/movies?category=popular",
+    category: "popular",
+    auth: true,
+  },
+  {
+    label: "Trending",
+    to: "/movies?category=trending",
+    category: "trending",
+    auth: true,
+  },
+  {
+    label: "Upcoming",
+    to: "/movies?category=upcoming",
+    category: "upcoming",
+    auth: true,
+  },
+  {
+    label: "AI Search",
+    to: "/ai/search",
+    auth: true,
+    dot: true,
+  },
 ];
 
 const TAB_ITEMS = [
@@ -61,17 +84,20 @@ export default function Navbar({ overlay = false }: NavbarProps) {
   const { pathname } = useLocation();
   const [params] = useSearchParams();
 
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
   const [query, setQuery] = useState("");
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const sentinel = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  /* Solid header once the page leaves the top: IntersectionObserver, no scroll listener */
+  /* Solid header once the page leaves the top */
   useEffect(() => {
     const node = sentinel.current;
 
@@ -79,9 +105,9 @@ export default function Navbar({ overlay = false }: NavbarProps) {
       return;
     }
 
-    const observer = new IntersectionObserver(([entry]) =>
-      setScrolled(!entry.isIntersecting),
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      setScrolled(!entry.isIntersecting);
+    });
 
     observer.observe(node);
 
@@ -92,16 +118,50 @@ export default function Navbar({ overlay = false }: NavbarProps) {
   useEffect(() => {
     document.documentElement.classList.add("has-bottom-nav");
 
-    return () =>
+    return () => {
       document.documentElement.classList.remove("has-bottom-nav");
+    };
   }, []);
+
+  /* Close the account menu when clicking outside or pressing Escape */
+  useEffect(() => {
+    if (!isProfileMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isProfileMenuOpen]);
+
+  /* Close transient UI when the route changes */
+  useEffect(() => {
+    setIsProfileMenuOpen(false);
+    setMobileSearch(false);
+  }, [pathname]);
 
   const solid = scrolled || !overlay;
 
-  const gate = (
-    event: React.MouseEvent,
-    auth: boolean | undefined,
-  ) => {
+  const gate = (event: React.MouseEvent, auth: boolean | undefined) => {
     if (!auth) {
       return;
     }
@@ -147,7 +207,28 @@ export default function Navbar({ overlay = false }: NavbarProps) {
     }
 
     setMobileSearch(false);
+
     navigate(`/movies?category=popular&q=${encodeURIComponent(value)}`);
+  };
+
+  const handleLogout = async () => {
+    setIsProfileMenuOpen(false);
+
+    try {
+      await logout();
+    } finally {
+      navigate("/", { replace: true });
+    }
+  };
+
+  const handleSwitchAccount = async () => {
+    setIsProfileMenuOpen(false);
+
+    try {
+      await logout();
+    } finally {
+      navigate("/signin", { replace: true });
+    }
   };
 
   const avatarId = user?.avatar || "avatar-1";
@@ -161,21 +242,103 @@ export default function Navbar({ overlay = false }: NavbarProps) {
       ? null
       : `/avatars/avatar${avatarNumber - 1}.svg`;
 
-  const avatarFallback =
-    user?.name?.trim().charAt(0).toUpperCase() || "U";
+  const avatarFallback = user?.name?.trim().charAt(0).toUpperCase() || "U";
 
   const iconButton =
-    "h-10 w-10 place-items-center rounded-full text-muted transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-white/10 hover:text-ink";
+    "grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-[transform,background-color,color] duration-150 hover:bg-white/10 hover:text-ink active:scale-90";
 
   const profileLink = (
-    <Link to="/profile" aria-label="Profile" className="ml-1 shrink-0">
-      <Avatar className="h-8 w-8 ring-1 ring-line">
-        {avatarSrc && <AvatarImage src={avatarSrc} alt={user?.name ?? ""} />}
-        <AvatarFallback className="bg-brand text-sm font-semibold text-white">
-          {avatarFallback}
-        </AvatarFallback>
-      </Avatar>
-    </Link>
+    <div ref={profileMenuRef} className="relative ml-1 shrink-0">
+      <button
+        type="button"
+        aria-label="Open account menu"
+        aria-haspopup="menu"
+        aria-expanded={isProfileMenuOpen}
+        onClick={() => setIsProfileMenuOpen((open) => !open)}
+        className="flex items-center gap-1 rounded-full p-0.5 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <Avatar className="h-8 w-8 ring-1 ring-line">
+          {avatarSrc && <AvatarImage src={avatarSrc} alt={user?.name ?? ""} />}
+
+          <AvatarFallback className="bg-brand text-sm font-semibold text-white">
+            {avatarFallback}
+          </AvatarFallback>
+        </Avatar>
+
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            "hidden text-muted transition-transform duration-200 md:block",
+            isProfileMenuOpen && "rotate-180",
+          )}
+        />
+      </button>
+
+      {isProfileMenuOpen && (
+        <div
+          role="menu"
+          aria-label="Account menu"
+          className="absolute right-0 top-full z-[60] mt-3 w-64 overflow-hidden rounded-2xl border border-line bg-canvas shadow-2xl shadow-black/20 animate-fade"
+        >
+          {/* Account information */}
+          <div className="flex items-center gap-3 border-b border-line px-4 py-4">
+            <Avatar className="h-10 w-10 shrink-0 ring-1 ring-line">
+              {avatarSrc && (
+                <AvatarImage src={avatarSrc} alt={user?.name ?? ""} />
+              )}
+
+              <AvatarFallback className="bg-brand font-semibold text-white">
+                {avatarFallback}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">
+                {user?.name || "MovieBox User"}
+              </p>
+
+              <p className="truncate text-xs text-muted">{user?.email}</p>
+            </div>
+          </div>
+
+          {/* Account actions */}
+          <div className="space-y-1 p-2">
+            <Link
+              to="/profile"
+              role="menuitem"
+              onClick={() => setIsProfileMenuOpen(false)}
+              className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-ink transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              <User size={17} className="text-muted" />
+              <span>View Profile</span>
+            </Link>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void handleSwitchAccount()}
+              className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-ink transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              <Users size={17} className="text-muted" />
+              <span>Switch Account</span>
+            </button>
+
+            <div className="my-1 border-t border-line" />
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void handleLogout()}
+              className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            >
+              <LogOut size={17} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -187,11 +350,12 @@ export default function Navbar({ overlay = false }: NavbarProps) {
       />
 
       <header className="pt-safe fixed inset-x-0 top-0 z-50 isolate">
-        {/* gradient scrim (always) + solid glass layer that fades in on scroll */}
+        {/* Gradient scrim over hero images */}
         {overlay && (
           <div className="absolute inset-0 -z-20 bg-linear-to-b from-black/70 to-transparent" />
         )}
 
+        {/* Glass header */}
         <div
           aria-hidden="true"
           className={cn(
@@ -204,6 +368,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
           aria-label="Main"
           className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:px-8"
         >
+          {/* Logo */}
           <Link
             to="/"
             aria-label="MovieBox home"
@@ -212,7 +377,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
             Movie<span className="text-brand">Box</span>
           </Link>
 
-          {/* Desktop links */}
+          {/* Desktop navigation */}
           <ul className="ml-2 hidden h-full items-stretch md:flex">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item);
@@ -256,8 +421,10 @@ export default function Navbar({ overlay = false }: NavbarProps) {
             >
               <Search
                 size={16}
+                aria-hidden="true"
                 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
               />
+
               <input
                 type="search"
                 value={query}
@@ -275,11 +442,12 @@ export default function Navbar({ overlay = false }: NavbarProps) {
               aria-label={mobileSearch ? "Close search" : "Search"}
               aria-expanded={mobileSearch}
               onClick={() => setMobileSearch((open) => !open)}
-              className={cn(iconButton, "grid md:hidden")}
+              className={cn(iconButton, "md:hidden")}
             >
               {mobileSearch ? <X size={19} /> : <Search size={19} />}
             </button>
 
+            {/* Theme toggle */}
             <button
               type="button"
               onClick={toggleTheme}
@@ -288,11 +456,12 @@ export default function Navbar({ overlay = false }: NavbarProps) {
                   ? "Switch to light mode"
                   : "Switch to dark mode"
               }
-              className={cn(iconButton, "grid")}
+              className={iconButton}
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
+            {/* Signed-in actions */}
             {!loading && user && (
               <>
                 <Link
@@ -307,6 +476,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
               </>
             )}
 
+            {/* Signed-out action */}
             {!loading && !user && (
               <Link
                 to="/signin"
@@ -318,6 +488,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
           </div>
         </nav>
 
+        {/* Mobile search field */}
         {mobileSearch && (
           <form
             role="search"
@@ -327,8 +498,10 @@ export default function Navbar({ overlay = false }: NavbarProps) {
             <div className="relative">
               <Search
                 size={17}
+                aria-hidden="true"
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
               />
+
               <input
                 autoFocus
                 type="search"
@@ -346,6 +519,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
         )}
       </header>
 
+      {/* Space below the fixed header on non-overlay pages */}
       {!overlay && (
         <div
           aria-hidden="true"
@@ -353,7 +527,7 @@ export default function Navbar({ overlay = false }: NavbarProps) {
         />
       )}
 
-      {/* Mobile tab bar */}
+      {/* Mobile bottom navigation */}
       <nav
         aria-label="Primary"
         className="pb-safe fixed inset-x-0 bottom-0 z-50 border-t border-line bg-canvas/90 backdrop-blur-xl md:hidden"

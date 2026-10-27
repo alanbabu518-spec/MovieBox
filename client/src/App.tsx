@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -8,16 +8,6 @@ import {
   useParams,
 } from "react-router-dom";
 
-import Home from "./pages/Home";
-import Movies from "./pages/Movies";
-import MovieDetails from "./pages/MovieDetails";
-import SignIn from "./pages/Authentication";
-import AuthVerify from "./pages/AuthVerify";
-import Profile from "./pages/Profile";
-import Watchlist from "./pages/Watchlist";
-import Favorites from "./pages/Favorites";
-import AISearch from "./pages/AISearch";
-
 import { AuthProvider, useAuth } from "./shared/context/AuthContext";
 import MovieAIChatbot from "./shared/components/ai/MovieAIChatbot";
 import ErrorPage from "./shared/components/errors/ErrorPage";
@@ -25,6 +15,35 @@ import ErrorBoundary from "./shared/components/errors/ErrorBoundary";
 
 import { useLibraryStore } from "./store/library.store";
 import { useThemeStore } from "./store/theme.store";
+
+// Lazy-loaded pages: downloaded when a route needs them.
+const Home = lazy(() => import("./pages/Home"));
+const Movies = lazy(() => import("./pages/Movies"));
+const MovieDetails = lazy(() => import("./pages/MovieDetails"));
+const SignIn = lazy(() => import("./pages/Authentication"));
+const AuthVerify = lazy(() => import("./pages/AuthVerify"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Watchlist = lazy(() => import("./pages/Watchlist"));
+const Favorites = lazy(() => import("./pages/Favorites"));
+const AISearch = lazy(() => import("./pages/AISearch"));
+
+function PageLoader() {
+  return (
+    <div
+      className="flex min-h-[60vh] items-center justify-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"
+          aria-hidden="true"
+        />
+        <p className="text-sm text-gray-500">Loading page...</p>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Scrolls to the top whenever the user navigates to a new page
@@ -66,7 +85,7 @@ function LibrarySync() {
 }
 
 /**
- * Updates the browser's theme-color metadata when the theme changes.
+ * Updates browser theme-color metadata when the theme changes.
  */
 function ThemeColorSync() {
   const theme = useThemeStore((state) => state.theme);
@@ -74,10 +93,7 @@ function ThemeColorSync() {
   useEffect(() => {
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute(
-        "content",
-        theme === "dark" ? "#08080b" : "#f6f6f8",
-      );
+      ?.setAttribute("content", theme === "dark" ? "#08080b" : "#f6f6f8");
   }, [theme]);
 
   return null;
@@ -85,7 +101,6 @@ function ThemeColorSync() {
 
 /**
  * Shows the global AI chatbot on supported application pages.
- * Hides it on authentication pages and unknown routes.
  */
 function GlobalAIChatbot() {
   const { pathname } = useLocation();
@@ -120,10 +135,7 @@ function GlobalAIChatbot() {
 }
 
 /**
- * Maintains backward compatibility with older movie-detail links.
- *
- * Older URL: /movies/123
- * Current URL: /movie/123
+ * Redirects older movie-detail URLs to the current route.
  */
 function LegacyMovieRedirect() {
   const { id } = useParams();
@@ -132,17 +144,9 @@ function LegacyMovieRedirect() {
     return <Navigate to="/movies" replace />;
   }
 
-  return (
-    <Navigate
-      to={`/movie/${encodeURIComponent(id)}`}
-      replace
-    />
-  );
+  return <Navigate to={`/movie/${encodeURIComponent(id)}`} replace />;
 }
 
-/**
- * Defines the routes and shared application components.
- */
 function RoutedApplication() {
   const { pathname } = useLocation();
 
@@ -152,60 +156,35 @@ function RoutedApplication() {
       <LibrarySync />
       <ThemeColorSync />
 
-      <Routes>
-        {/* Main pages */}
-        <Route path="/" element={<Home />} />
-        <Route path="/movies" element={<Movies />} />
-        <Route
-          path="/movie/:id"
-          element={<MovieDetails />}
-        />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/movies" element={<Movies />} />
 
-        {/* Backward-compatible movie-detail route */}
-        <Route
-          path="/movies/:id"
-          element={<LegacyMovieRedirect />}
-        />
+          <Route path="/movie/:id" element={<MovieDetails />} />
 
-        {/* Authentication */}
-        <Route path="/signin" element={<SignIn />} />
-        <Route
-          path="/auth/verify"
-          element={<AuthVerify />}
-        />
+          <Route path="/movies/:id" element={<LegacyMovieRedirect />} />
 
-        {/* User library */}
-        <Route
-          path="/watchlist"
-          element={<Watchlist />}
-        />
-        <Route
-          path="/favorites"
-          element={<Favorites />}
-        />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/auth/verify" element={<AuthVerify />} />
 
-        {/* AI and profile */}
-        <Route
-          path="/ai/search"
-          element={<AISearch />}
-        />
-        <Route path="/profile" element={<Profile />} />
+          <Route path="/watchlist" element={<Watchlist />} />
 
-        {/* Keep the 404 route last */}
-        <Route
-          path="*"
-          element={<ErrorPage statusCode={404} />}
-        />
-      </Routes>
+          <Route path="/favorites" element={<Favorites />} />
+
+          <Route path="/ai/search" element={<AISearch />} />
+
+          <Route path="/profile" element={<Profile />} />
+
+          <Route path="*" element={<ErrorPage statusCode={404} />} />
+        </Routes>
+      </Suspense>
 
       <GlobalAIChatbot />
     </ErrorBoundary>
   );
 }
 
-/**
- * Root application component.
- */
 export default function App() {
   return (
     <AuthProvider>
