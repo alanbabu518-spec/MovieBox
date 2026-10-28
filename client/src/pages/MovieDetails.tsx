@@ -10,7 +10,6 @@ import MovieCrew from "../shared/components/moviedetails/MovieCrew";
 import MovieTrailer from "../shared/components/moviedetails/MovieTrailer";
 import SimilarMovies from "../shared/components/moviedetails/SimilarMovies";
 import WhereToWatch from "../shared/components/moviedetails/WhereToWatch";
-import MovieRating from "../shared/components/moviedetails/MovieRating";
 import MovieReviews from "../shared/components/moviedetails/MovieReviews";
 import AddReview from "../shared/components/moviedetails/AddReview";
 import AIRecommendations from "../shared/components/movie/AIRecommendations";
@@ -378,11 +377,6 @@ export default function MovieDetails() {
 
         {/* Reviews */}
         <div id="reviews" className="scroll-mt-28">
-          <MovieRating
-            key={`rating-${reviewsVersion}`}
-            tmdbId={String(movie.id)}
-          />
-
           <MovieReviews
             key={`movie-reviews-${reviewsVersion}`}
             tmdbId={String(movie.id)}

@@ -172,19 +172,6 @@ export interface TMDBReviewsPage {
   total_results: number;
 }
 
-export interface RatingStats {
-  average: number;
-  total: number;
-  distribution: {
-    1: number;
-    2: number;
-    3: number;
-    4: number;
-    5: number;
-  };
-  userRating: number | null;
-}
-
 export interface CreateReviewInput {
   content: string;
   rating: number;
@@ -392,49 +379,6 @@ export async function createReview(
   const response = await api.post(`/movies/${tmdbId}/reviews`, data);
 
   return response.data?.data ?? response.data;
-}
-
-export async function getRatingStats(tmdbId: string): Promise<RatingStats> {
-  const response = await api.get(`/movies/${tmdbId}/rating`);
-
-  const data = response.data?.data ?? response.data;
-
-  return {
-    average: Number(data?.average ?? 0),
-    total: Number(data?.total ?? 0),
-    distribution: data?.distribution ?? {
-      1: 0,
-      2: 0,
-      3: 0,
-      4: 0,
-      5: 0,
-    },
-    userRating: data?.userRating == null ? null : Number(data.userRating),
-  };
-}
-
-export async function rateMovie(
-  tmdbId: string,
-  value: number,
-): Promise<RatingStats> {
-  const response = await api.post(`/movies/${tmdbId}/rating`, {
-    rating: value,
-  });
-
-  const data = response.data?.data ?? response.data;
-
-  return {
-    average: Number(data?.average ?? 0),
-    total: Number(data?.total ?? 0),
-    distribution: data?.distribution ?? {
-      1: 0,
-      2: 0,
-      3: 0,
-      4: 0,
-      5: 0,
-    },
-    userRating: data?.userRating == null ? value : Number(data.userRating),
-  };
 }
 
 export async function searchMovies(

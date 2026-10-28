@@ -1,12 +1,23 @@
-import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import SectionHeader from "../ui/Sectionheader";
-
-import api from "../../services/api";
-
 import { useAuth } from "../../context/AuthContext";
+
+interface CommunityReview {
+  id: string;
+  content: string;
+  rating: number;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+  };
+  movie: {
+    tmdbId: number;
+    title: string;
+  };
+}
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 31536000],
@@ -15,30 +26,6 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["hour", 3600],
   ["minute", 60],
 ];
-
-interface CommunityReview {
-  id: string;
-  content: string;
-  rating: number;
-  createdAt: string;
-  user: { id: string; name: string };
-  movie: { tmdbId: number; title: string };
-}
-
-/* Falls back to the sample reviews below if the endpoint doesn't exist yet */
-async function getRecentReviews(limit = 6): Promise<CommunityReview[]> {
-  const response = await api.get("/movies/reviews/recent", {
-    params: { limit },
-  });
-
-  const data = response.data?.data ?? response.data;
-
-  return Array.isArray(data) ? data : [];
-}
-
-/* Shown only while the database has no reviews yet.
-   Set to false (or delete SAMPLE_REVIEWS) once real reviews exist. */
-const USE_SAMPLE_FALLBACK = true;
 
 const hoursAgo = (hours: number) =>
   new Date(Date.now() - hours * 3600 * 1000).toISOString();
@@ -102,7 +89,9 @@ const SAMPLE_REVIEWS: CommunityReview[] = [
 
 function timeAgo(iso: string): string {
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat("en", {
+    numeric: "auto",
+  });
 
   for (const [unit, seconds] of UNITS) {
     if (Math.abs(diff) >= seconds) {
@@ -117,31 +106,11 @@ export default function CommunityBuzz() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  const [reviews, setReviews] = useState<CommunityReview[]>([]);
-  const [loading, setLoading] = useState(true);
+  // This section uses sample data only.
+  // No recent-reviews API request is made.
+  const reviews = SAMPLE_REVIEWS;
 
-  useEffect(() => {
-    let mounted = true;
-
-    getRecentReviews(6)
-      .then((data: CommunityReview[]) => mounted && setReviews(data))
-      .catch(() => mounted && setReviews([]))
-      .finally(() => mounted && setLoading(false));
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const list =
-    reviews.length > 0 ? reviews : USE_SAMPLE_FALLBACK ? SAMPLE_REVIEWS : [];
-
-  /* Nothing to show (or endpoint unavailable): drop the section quietly */
-  if (!loading && list.length === 0) {
-    return null;
-  }
-
-  const gate = (event: React.MouseEvent) => {
+  const gate = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (authLoading) {
       event.preventDefault();
       return;
@@ -162,7 +131,7 @@ export default function CommunityBuzz() {
         title="Community Buzz"
         action={
           <span className="hidden text-sm text-muted sm:inline">
-            Real reviews from movie lovers like you
+            Sample reviews from movie lovers
           </span>
         }
       />
@@ -171,60 +140,53 @@ export default function CommunityBuzz() {
         role="list"
         className="scrollbar-none -mx-4 flex snap-x gap-3 overflow-x-auto overscroll-x-contain px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0"
       >
-        {loading
-          ? Array.from({ length: 3 }).map((_, index) => (
-              <li key={index} className={cardClass}>
-                <div className="skeleton mb-3 h-10 w-40 rounded-lg" />
-                <div className="skeleton mb-2 h-4 w-3/4 rounded" />
-                <div className="skeleton h-16 w-full rounded" />
-              </li>
-            ))
-          : list.map((review) => (
-              <li key={review.id} className={cardClass}>
-                <div className="flex items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand/15 text-sm font-bold text-brand"
-                  >
-                    {review.user.name.trim().charAt(0).toUpperCase() || "U"}
-                  </span>
+        {reviews.map((review) => (
+          <li key={review.id} className={cardClass}>
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand/15 text-sm font-bold text-brand"
+              >
+                {review.user.name.trim().charAt(0).toUpperCase() || "U"}
+              </span>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
-                      {review.user.name}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {timeAgo(review.createdAt)}
-                    </p>
-                  </div>
-
-                  <span className="flex items-center gap-1 text-sm font-bold">
-                    <Star
-                      size={14}
-                      fill="currentColor"
-                      strokeWidth={0}
-                      className="text-gold"
-                    />
-                    {review.rating.toFixed(1)}
-                  </span>
-                </div>
-
-                <p className="mt-3 text-sm font-semibold">
-                  About:{" "}
-                  <Link
-                    to={`/movie/${review.movie.tmdbId}`}
-                    onClick={gate}
-                    className="text-brand hover:underline"
-                  >
-                    {review.movie.title}
-                  </Link>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">
+                  {review.user.name}
                 </p>
 
-                <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-muted">
-                  “{review.content}”
+                <p className="text-xs text-muted">
+                  {timeAgo(review.createdAt)}
                 </p>
-              </li>
-            ))}
+              </div>
+
+              <span className="flex items-center gap-1 text-sm font-bold">
+                <Star
+                  size={14}
+                  fill="currentColor"
+                  strokeWidth={0}
+                  className="text-gold"
+                />
+                {review.rating.toFixed(1)}
+              </span>
+            </div>
+
+            <p className="mt-3 text-sm font-semibold">
+              About:{" "}
+              <Link
+                to={`/movie/${review.movie.tmdbId}`}
+                onClick={gate}
+                className="text-brand hover:underline"
+              >
+                {review.movie.title}
+              </Link>
+            </p>
+
+            <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-muted">
+              “{review.content}”
+            </p>
+          </li>
+        ))}
       </ul>
     </section>
   );
