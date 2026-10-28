@@ -11,6 +11,6 @@ export const nvidiaClient = new OpenAI({
   baseURL:
     process.env.NVIDIA_BASE_URL?.trim() ||
     "https://integrate.api.nvidia.com/v1",
-  timeout: 120_000,
+  timeout: 12_000,
   maxRetries: 0,
 });

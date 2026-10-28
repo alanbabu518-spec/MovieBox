@@ -8,7 +8,7 @@ const DEFAULT_NVIDIA_MODELS = [
   "nvidia/nemotron-3.5-lightning-30b-a3b",
 ] as const;
 
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 12_000;
 
 type ChatRole = "system" | "user" | "assistant";
 type ChatMessage = { role: ChatRole; content: string };

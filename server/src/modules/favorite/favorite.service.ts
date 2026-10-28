@@ -1,17 +1,9 @@
-import { prisma } from "../../config/database";
+import { prisma } from "../../config/database.js";
+import { getOrCreateMovie } from "../movies/movie.service.js";
 import { AppError } from "../../shared/utils/appError.js";
 
-export const addToFavorites = async (
-  userId: string,
-  tmdbId: number,
-) => {
-  const movie = await prisma.movie.findUnique({
-    where: { tmdbId },
-  });
-
-  if (!movie) {
-    throw new AppError("Movie not found", 404);
-  }
+export const addToFavorites = async (userId: string, tmdbId: number) => {
+  const movie = await getOrCreateMovie(tmdbId);
 
   const existing = await prisma.favorite.findUnique({
     where: {
@@ -37,10 +29,7 @@ export const addToFavorites = async (
   });
 };
 
-export const removeFromFavorites = async (
-  userId: string,
-  tmdbId: number,
-) => {
+export const removeFromFavorites = async (userId: string, tmdbId: number) => {
   const movie = await prisma.movie.findUnique({
     where: { tmdbId },
   });
@@ -87,10 +76,7 @@ export const getFavorites = async (userId: string) => {
   });
 };
 
-export const checkFavorite = async (
-  userId: string,
-  tmdbId: number,
-) => {
+export const checkFavorite = async (userId: string, tmdbId: number) => {
   const movie = await prisma.movie.findUnique({
     where: { tmdbId },
   });

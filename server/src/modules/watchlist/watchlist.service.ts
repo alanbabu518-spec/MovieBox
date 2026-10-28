@@ -1,17 +1,9 @@
-import { prisma } from "../../config/database";
+import { prisma } from "../../config/database.js";
+import { getOrCreateMovie } from "../movies/movie.service.js";
 import { AppError } from "../../shared/utils/appError.js";
 
-export const addToWatchlist = async (
-  userId: string,
-  tmdbId: number,
-) => {
-  const movie = await prisma.movie.findUnique({
-    where: { tmdbId },
-  });
-
-  if (!movie) {
-    throw new AppError("Movie not found", 404);
-  }
+export const addToWatchlist = async (userId: string, tmdbId: number) => {
+  const movie = await getOrCreateMovie(tmdbId);
 
   const existing = await prisma.watchlist.findUnique({
     where: {
@@ -37,10 +29,7 @@ export const addToWatchlist = async (
   });
 };
 
-export const removeFromWatchlist = async (
-  userId: string,
-  tmdbId: number,
-) => {
+export const removeFromWatchlist = async (userId: string, tmdbId: number) => {
   const movie = await prisma.movie.findUnique({
     where: { tmdbId },
   });
@@ -87,10 +76,7 @@ export const getWatchlist = async (userId: string) => {
   });
 };
 
-export const checkWatchlist = async (
-  userId: string,
-  tmdbId: number,
-) => {
+export const checkWatchlist = async (userId: string, tmdbId: number) => {
   const movie = await prisma.movie.findUnique({
     where: { tmdbId },
   });
