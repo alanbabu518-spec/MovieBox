@@ -7,8 +7,12 @@ RUN npm ci
 
 COPY . .
 
-RUN npx prisma generate
+# Prisma 7 requires DATABASE_URL when loading prisma.config.ts.
+# Use a temporary URL only during client generation.
+RUN DATABASE_URL="postgresql://user:password@localhost:5432/moviebox" npx prisma generate
+
 RUN npm run build
+
 
 FROM node:24-alpine AS production
 
