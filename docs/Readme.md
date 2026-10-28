@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="MovieBox banner" width="100%" />
+<img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/banner.png" alt="MovieBox banner" width="100%" />
 
 # 🎬 MovieBox
 
@@ -38,41 +38,41 @@ It is built to show real-world engineering beyond CRUD: passwordless authenticat
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/images/home.png" alt="Home page" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/Home.png" alt="Home page" /><br/>
       <sub><b>Home</b>: trending, popular, upcoming, genre tiles</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/images/discover.png" alt="Discover with filters" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/Discover.png" alt="Discover with filters" /><br/>
       <sub><b>Discover</b>: genre, language, year, rating filters</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/images/movie-details.png" alt="Movie details" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/moviedetails.png" alt="Movie details" /><br/>
       <sub><b>Movie details</b>: cast, trailer, where to watch, reviews</sub>
     </td>
     <td align="center">
-      <img src="docs/images/ai-chat.png" alt="Momo AI chatbot" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/Chatbot.png" alt="Momo AI chatbot" /><br/>
       <sub><b>Momo</b>: the AI movie assistant</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/images/ai-search.png" alt="AI search" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/AI%20search.png" alt="AI search" /><br/>
       <sub><b>AI Search</b>: describe a movie in plain English</sub>
     </td>
     <td align="center">
-      <img src="docs/images/auth.png" alt="Passwordless sign in" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/Authpage.png" alt="Passwordless sign in" /><br/>
       <sub><b>Sign in</b>: magic link or Google, no passwords</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/images/profile.png" alt="User profile" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/Profile.png" alt="User profile" /><br/>
       <sub><b>Profile</b>: avatars, library, account controls</sub>
     </td>
     <td align="center">
-      <img src="docs/images/dark-light.png" alt="Dark and light themes" /><br/>
+      <img src="https://github.com/alanbabu518-spec/MovieBox/blob/main/docs/images/light%20theme.png" alt="Dark and light themes" /><br/>
       <sub><b>Themes</b>: dark and light mode</sub>
     </td>
   </tr>
