@@ -17,7 +17,7 @@ import type { AuthenticatedRequest } from "../../shared/types/auth.js";
 const cookieOptions = {
   httpOnly: true,
   secure: env.nodeEnv === "production",
-  sameSite: "lax" as const,
+  sameSite: env.nodeEnv === "production" ? ("none" as const) : ("lax" as const),
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 };
