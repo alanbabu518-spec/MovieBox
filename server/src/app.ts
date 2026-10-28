@@ -10,13 +10,18 @@ import { env } from "./config/env.js";
 
 const app = express();
 
+const allowedOrigins = [
+  env.clientUrl,
+  "https://movie-box-gilt-seven.vercel.app",
+];
+
 // Security headers
 app.use(helmet());
 
-// Restrict cross-origin requests to the configured frontend.
+// Restrict cross-origin requests to approved frontend origins.
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
@@ -38,7 +43,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Liveness check: verifies that the API process responds.
+// Liveness check
 app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -48,8 +53,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// API routes.
-// CSRF protection is already applied inside routes/index.ts.
+// API routes
 app.use("/api", routes);
 
 // Error handling must remain after routes.
