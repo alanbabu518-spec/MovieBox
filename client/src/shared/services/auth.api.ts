@@ -37,6 +37,14 @@ export async function requestMagicLink(email: string): Promise<string> {
   return response.data.data.message;
 }
 
+/**
+ * Exchanges a magic-link token for a session cookie.
+ * Done via XHR so the browser never leaves the app origin.
+ */
+export async function verifyMagicLinkToken(token: string): Promise<void> {
+  await api.post("/auth/verify", { token });
+}
+
 export async function getCurrentUser(): Promise<AuthUser> {
   const response = await api.get<AuthResponse>("/auth/me");
 
