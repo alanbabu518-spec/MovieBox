@@ -23,7 +23,7 @@ app.use(
   }),
 );
 
-// Limit incoming request payload sizes.
+// Limit incoming request payload size.
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
