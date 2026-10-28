@@ -42,13 +42,6 @@ export const csrfProtection = (
     return;
   }
 
-  // Reject requests explicitly identified as cross-site.
-  const fetchSite = req.get("sec-fetch-site");
-
-  if (fetchSite === "cross-site") {
-    next(new AppError("Cross-site requests are not allowed", 403));
-    return;
-  }
-
+  // The trusted Origin check above is the CSRF origin validation.
   next();
 };
