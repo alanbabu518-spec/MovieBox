@@ -3,7 +3,6 @@ import { Check, Film, Heart, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Movie } from "../../types/movie";
-
 import { useAuth } from "../../context/AuthContext";
 import { useLibraryStore } from "../../../store/library.store";
 import { cn } from "../../lib/cn";
@@ -12,42 +11,28 @@ interface MovieCardProps {
   movie: Movie;
   priority?: boolean;
   className?: string;
-  /** Optional controlled favorite state (otherwise the shared library store is used) */
   isFavorite?: boolean;
   onToggleFavorite?: (movie: Movie, next: boolean) => void;
-  /** Replaces the heart + add buttons (used by Favorites / Watchlist pages) */
   action?: ReactNode;
 }
 
 const TMDB = "https://image.tmdb.org/t/p";
 
-/** "New" for the last 45 days, "Soon" for unreleased titles */
 function releaseBadge(releaseDate: string | null): "New" | "Soon" | null {
-  if (!releaseDate) {
-    return null;
-  }
+  if (!releaseDate) return null;
 
   const days = (Date.now() - new Date(releaseDate).getTime()) / 86_400_000;
 
-  if (Number.isNaN(days)) {
-    return null;
-  }
-
-  if (days < 0) {
-    return "Soon";
-  }
+  if (Number.isNaN(days)) return null;
+  if (days < 0) return "Soon";
 
   return days <= 45 ? "New" : null;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
-/* Glass control: solid on phones (cheap to scroll), real blur where there's headroom */
 const glass =
   "bg-black/50 text-white ring-1 ring-white/15 md:bg-black/35 md:backdrop-blur-md md:backdrop-saturate-150";
-
-/* 44px touch target without a 44px visual */
-const hitArea = "before:absolute before:-inset-2 before:content-['']";
 
 function MovieCard({
   movie,
@@ -74,7 +59,6 @@ function MovieCard({
   const [imageFailed, setImageFailed] = useState(false);
   const [badge] = useState(() => releaseBadge(movie.releaseDate));
 
-  /* Pointer-driven tilt: refs + rAF only, no React state per move */
   const tiltRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLSpanElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -108,7 +92,7 @@ function MovieCard({
       return;
     }
 
-    tilt.style.willChange = "transform"; // only while motion is imminent
+    tilt.style.willChange = "transform";
     tilt.style.transition = "transform 180ms ease-out";
   };
 
@@ -130,9 +114,7 @@ function MovieCard({
       const tilt = tiltRef.current;
       const glare = glareRef.current;
 
-      if (!stage || !tilt) {
-        return;
-      }
+      if (!stage || !tilt) return;
 
       const rect = stage.getBoundingClientRect();
       const x = clamp((clientX - rect.left) / rect.width);
@@ -152,7 +134,8 @@ function MovieCard({
     const tilt = tiltRef.current;
 
     if (tilt) {
-      tilt.style.transition = "transform 650ms cubic-bezier(0.16, 1, 0.3, 1)";
+      tilt.style.transition =
+        "transform 650ms cubic-bezier(0.16, 1, 0.3, 1)";
       tilt.style.transform = "";
       tilt.style.willChange = "";
     }
@@ -162,11 +145,8 @@ function MovieCard({
     }
   };
 
-  /* Quick spring-ish pop on the icon (transform only, Web Animations API) */
   const pop = (element: HTMLElement | null) => {
-    if (!element || reduceMotion.current) {
-      return;
-    }
+    if (!element || reduceMotion.current) return;
 
     element.animate(
       [
@@ -186,13 +166,10 @@ function MovieCard({
   const rating = movie.rating ?? 0;
   const genres = movie.genres ?? [];
   const hasPoster = Boolean(movie.posterPath) && !imageFailed;
-
   const meta = [year, genres[0] ?? null].filter(Boolean);
 
   const requireAuth = (callback: () => void) => {
-    if (loading) {
-      return;
-    }
+    if (loading) return;
 
     if (!user) {
       navigate("/signin");
@@ -245,7 +222,6 @@ function MovieCard({
 
   return (
     <article className={cn("group relative min-w-0", className)}>
-      {/* Press feedback lives on a non-tilting layer: instant down, soft release */}
       <div className="transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.96] active:duration-100">
         <div
           ref={stageRef}
@@ -254,7 +230,6 @@ function MovieCard({
           onPointerLeave={handleLeave}
           className="relative [perspective:900px]"
         >
-          {/* Depth: always rendered, only opacity animates */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-2 -bottom-1 -z-10 h-2/3 rounded-3xl opacity-0 shadow-[0_28px_50px_-14px_rgba(0,0,0,0.85)] transition-opacity duration-500 group-hover:opacity-100"
@@ -298,13 +273,11 @@ function MovieCard({
               </div>
             )}
 
-            {/* Legibility scrim for the corner controls */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-black/55 to-transparent"
             />
 
-            {/* Desktop hover: overview rises above the control row (never shown on touch) */}
             {movie.overview && (
               <div
                 aria-hidden="true"
@@ -316,20 +289,17 @@ function MovieCard({
               </div>
             )}
 
-            {/* Specular highlight (moves with the pointer on desktop) */}
             <span
               ref={glareRef}
               aria-hidden="true"
               className="pointer-events-none absolute left-1/2 top-1/2 h-[140%] w-[140%] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle,rgba(255,255,255,0.2),transparent_55%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
             />
 
-            {/* Light catching the edge */}
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/12"
             />
 
-            {/* Top-left: release badge */}
             {badge && (
               <span
                 className={cn(
@@ -348,7 +318,6 @@ function MovieCard({
               </span>
             )}
 
-            {/* Bottom-left: rating */}
             {rating > 0 && (
               <span
                 aria-label={`Rated ${rating.toFixed(1)} out of 10`}
@@ -369,7 +338,6 @@ function MovieCard({
 
             {action ?? (
               <>
-                {/* Top-right: favorite */}
                 <button
                   type="button"
                   aria-pressed={favorite}
@@ -380,21 +348,24 @@ function MovieCard({
                   }
                   onClick={handleFavorite}
                   className={cn(
-                    "absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full transition-transform duration-100 active:scale-90",
+                    "absolute right-2 top-2 z-20 grid h-10 w-10 touch-manipulation place-items-center rounded-full transition-transform duration-150 active:scale-90",
                     glass,
-                    hitArea,
                   )}
                 >
                   <span ref={heartRef} className="grid place-items-center">
                     <Heart
-                      size={15}
+                      size={18}
                       strokeWidth={2}
-                      className={cn(favorite && "fill-brand text-brand")}
+                      className={cn(
+                        "transition-colors duration-200",
+                        favorite
+                          ? "fill-red-500 text-red-500"
+                          : "text-white",
+                      )}
                     />
                   </span>
                 </button>
 
-                {/* Bottom-right: watchlist */}
                 <button
                   type="button"
                   aria-pressed={inWatchlist}
@@ -405,18 +376,17 @@ function MovieCard({
                   }
                   onClick={handleWatchlist}
                   className={cn(
-                    "absolute bottom-2 right-2 z-10 grid h-[30px] w-[30px] place-items-center rounded-full transition-[transform,background-color] duration-100 active:scale-90",
+                    "absolute bottom-2 right-2 z-20 grid h-10 w-10 touch-manipulation place-items-center rounded-full transition-all duration-200 active:scale-90",
                     inWatchlist
-                      ? "bg-brand text-white ring-1 ring-white/20"
+                      ? "bg-emerald-500 text-white ring-1 ring-white/20"
                       : glass,
-                    hitArea,
                   )}
                 >
                   <span ref={addRef} className="grid place-items-center">
                     {inWatchlist ? (
-                      <Check size={15} strokeWidth={2.6} />
+                      <Check size={18} strokeWidth={2.8} aria-hidden="true" />
                     ) : (
-                      <Plus size={16} strokeWidth={2.4} />
+                      <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
                     )}
                   </span>
                 </button>
@@ -441,14 +411,16 @@ function MovieCard({
         {meta.length > 0 && (
           <p className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11.5px] leading-none tracking-[0.005em] text-muted">
             {meta.map((item, index) => (
-              <span key={`${item}-${index}`} className="flex items-center gap-1.5">
+              <span
+                key={`${item}-${index}`}
+                className="flex items-center gap-1.5"
+              >
                 {index > 0 && (
                   <span
                     aria-hidden="true"
                     className="h-[3px] w-[3px] rounded-full bg-muted/70"
                   />
                 )}
-
                 <span className="truncate">{item}</span>
               </span>
             ))}
