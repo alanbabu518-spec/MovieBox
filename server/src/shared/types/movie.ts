@@ -1,6 +1,7 @@
 export interface Movie {
   id: number;
   title: string;
+  originalTitle?: string; // Added
   overview: string;
   posterPath: string | null;
   backdropPath: string | null;

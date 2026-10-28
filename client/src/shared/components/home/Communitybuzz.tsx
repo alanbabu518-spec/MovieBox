@@ -134,11 +134,7 @@ export default function CommunityBuzz() {
   }, []);
 
   const list =
-    reviews.length > 0
-      ? reviews
-      : USE_SAMPLE_FALLBACK
-        ? SAMPLE_REVIEWS
-        : [];
+    reviews.length > 0 ? reviews : USE_SAMPLE_FALLBACK ? SAMPLE_REVIEWS : [];
 
   /* Nothing to show (or endpoint unavailable): drop the section quietly */
   if (!loading && list.length === 0) {

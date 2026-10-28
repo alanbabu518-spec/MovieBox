@@ -9,14 +9,12 @@ export const normalizeTMDBMovie = (
 
   const genres = genreIds
     .map((genreId) => genreMap.get(genreId))
-    .filter(
-      (genre): genre is string =>
-        Boolean(genre),
-    );
+    .filter((genre): genre is string => Boolean(genre));
 
   return {
     id: movie.id,
     title: movie.title,
+    originalTitle: movie.original_title,
     overview: movie.overview,
     posterPath: movie.poster_path,
     backdropPath: movie.backdrop_path,
