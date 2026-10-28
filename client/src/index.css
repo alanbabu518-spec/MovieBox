@@ -2,6 +2,10 @@
 
 @import "tailwindcss";
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* `dark:` follows the app's data-theme switch instead of the OS setting */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -248,4 +252,31 @@ html.has-bottom-nav body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+@keyframes av-blink {
+  0%, 88%, 100% { transform: scaleY(1); }
+  93%, 97%      { transform: scaleY(0.07); }
+}
+@keyframes av-glow {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes av-think {
+  0%, 100% { transform: translateX(-1.5px); }
+  50%      { transform: translateX(1.5px); }
+}
+@keyframes av-speak {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1px); }
+}
+
+.av-blink { animation: av-blink 3.6s ease-in-out infinite; transform-origin: center; }
+.av-glow  { animation: av-glow 3.2s ease-in-out infinite; }
+.av-glow[data-state="thinking"] { animation-duration: 1.2s; }
+.av-eyes[data-state="thinking"] { animation: av-think 1.4s ease-in-out infinite; }
+.av-eyes[data-state="speaking"] { animation: av-speak 0.45s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-blink, .av-glow, .av-eyes { animation: none !important; }
 }

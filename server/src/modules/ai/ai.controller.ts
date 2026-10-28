@@ -16,9 +16,12 @@ import {
 import { getMovieDetails } from "../movies/movieDetails.service.js";
 import { getAIRecommendations } from "./ai.recommendation.service.js";
 
-type Movie = Awaited<
-  ReturnType<typeof searchMovies>
->["movies"][number];
+type Movie = Awaited<ReturnType<typeof searchMovies>>["movies"][number];
+
+type ConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 const genreMap: Record<string, string> = {
   action: "28",
@@ -57,37 +60,24 @@ const languageMap: Record<string, string> = {
   chinese: "zh",
 };
 
-const normalizeGenre = (
-  genre: string | null,
-) => {
+const normalizeGenre = (genre: string | null) => {
   if (!genre) {
     return undefined;
   }
 
-  return (
-    genreMap[genre.trim().toLowerCase()] ??
-    undefined
-  );
+  return genreMap[genre.trim().toLowerCase()] ?? undefined;
 };
 
-const normalizeLanguage = (
-  language: string | null,
-) => {
+const normalizeLanguage = (language: string | null) => {
   if (!language) {
     return undefined;
   }
 
-  return (
-    languageMap[
-      language.trim().toLowerCase()
-    ] ?? undefined
-  );
+  return languageMap[language.trim().toLowerCase()] ?? undefined;
 };
 
 const buildMovieFilters = (
-  intent: Awaited<
-    ReturnType<typeof extractAISearchIntent>
-  >,
+  intent: Awaited<ReturnType<typeof extractAISearchIntent>>,
 ) => {
   const filters: {
     genre?: string;
@@ -98,13 +88,8 @@ const buildMovieFilters = (
     page: 1,
   };
 
-  const genre = normalizeGenre(
-    intent.genre,
-  );
-
-  const language = normalizeLanguage(
-    intent.language,
-  );
+  const genre = normalizeGenre(intent.genre);
+  const language = normalizeLanguage(intent.language);
 
   if (genre) {
     filters.genre = genre;
@@ -115,54 +100,33 @@ const buildMovieFilters = (
   }
 
   if (intent.yearFrom !== null) {
-    filters.year = String(
-      intent.yearFrom,
-    );
+    filters.year = String(intent.yearFrom);
   }
 
   return filters;
 };
 
-export const askMovieAssistant = async (
-  req: Request,
-  res: Response,
-) => {
-  const userId =
-    (req as AuthenticatedRequest).userId;
+export const askMovieAssistant = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
 
   if (!userId) {
-    throw new AppError(
-      "Authentication required",
-      401,
-    );
+    throw new AppError("Authentication required", 401);
   }
 
   const tmdbId = Number(req.params.tmdbId);
 
-  if (
-    !Number.isInteger(tmdbId) ||
-    tmdbId <= 0
-  ) {
-    throw new AppError(
-      "Invalid movie ID",
-      400,
-    );
+  if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+    throw new AppError("Invalid movie ID", 400);
   }
 
   const question =
-    typeof req.body?.question === "string"
-      ? req.body.question.trim()
-      : "";
+    typeof req.body?.question === "string" ? req.body.question.trim() : "";
 
   if (!question) {
-    throw new AppError(
-      "Question is required",
-      400,
-    );
+    throw new AppError("Question is required", 400);
   }
 
-  const movie =
-    await getMovieDetails(tmdbId);
+  const movie = await getMovieDetails(tmdbId);
 
   const response = await askMovieAI({
     movieTitle: movie.title,
@@ -176,36 +140,21 @@ export const askMovieAssistant = async (
   });
 };
 
-export const searchWithAI = async (
-  req: Request,
-  res: Response,
-) => {
-  const userId =
-    (req as AuthenticatedRequest).userId;
+export const searchWithAI = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
 
   if (!userId) {
-    throw new AppError(
-      "Authentication required",
-      401,
-    );
+    throw new AppError("Authentication required", 401);
   }
 
   const query =
-    typeof req.body?.query === "string"
-      ? req.body.query.trim()
-      : "";
+    typeof req.body?.query === "string" ? req.body.query.trim() : "";
 
   if (!query) {
-    throw new AppError(
-      "Search query is required",
-      400,
-    );
+    throw new AppError("Search query is required", 400);
   }
 
-  const intent =
-    await extractAISearchIntent({
-      query,
-    });
+  const intent = await extractAISearchIntent({ query });
 
   const hasFilters =
     intent.genre !== null ||
@@ -215,11 +164,7 @@ export const searchWithAI = async (
     intent.sortBy !== null;
 
   if (!hasFilters) {
-    const movies =
-      await searchMovies(
-        intent.searchQuery,
-        1,
-      );
+    const movies = await searchMovies(intent.searchQuery, 1);
 
     return res.status(200).json({
       success: true,
@@ -230,11 +175,8 @@ export const searchWithAI = async (
     });
   }
 
-  const filters =
-    buildMovieFilters(intent);
-
-  const movies =
-    await discoverMovies(filters);
+  const filters = buildMovieFilters(intent);
+  const movies = await discoverMovies(filters);
 
   return res.status(200).json({
     success: true,
@@ -245,164 +187,165 @@ export const searchWithAI = async (
   });
 };
 
-export const getAIRecommendationResults =
-  async (
-    req: Request,
-    res: Response,
-  ) => {
-    const userId =
-      (req as AuthenticatedRequest).userId;
+export const getAIRecommendationResults = async (
+  req: Request,
+  res: Response,
+) => {
+  const userId = (req as AuthenticatedRequest).userId;
 
-    if (!userId) {
-      throw new AppError(
-        "Authentication required",
-        401,
-      );
-    }
+  if (!userId) {
+    throw new AppError("Authentication required", 401);
+  }
 
-    const recommendations =
-      await getAIRecommendations(
-        userId,
-      );
+  const recommendations = await getAIRecommendations(userId);
 
-    res.status(200).json({
-      success: true,
-      data: recommendations,
-    });
+  res.status(200).json({
+    success: true,
+    data: recommendations,
+  });
+};
+
+const isMovieDiscoveryRequest = (message: string): boolean => {
+  // Use TMDB retrieval only for discovery requests. Ordinary movie questions
+  // go directly to chat, avoiding an unnecessary intent-extraction call.
+  return /\b(recommend|recommendations|suggest|find me|show me|discover|search for|looking for|movies like|similar to|best|top|watch next|what should i watch|movies about|films about|\d{4} movies|in the \w+ genre|\w+ movies|\w+ films)\b/i.test(
+    message,
+  );
+};
+
+const isConversationMessage = (
+  value: unknown,
+): value is ConversationMessage => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as {
+    role?: unknown;
+    content?: unknown;
   };
 
-export const chatWithMovieAssistant =
-  async (
-    req: Request,
-    res: Response,
-  ) => {
-    const userId =
-      (req as AuthenticatedRequest).userId;
+  return (
+    (candidate.role === "user" || candidate.role === "assistant") &&
+    typeof candidate.content === "string"
+  );
+};
 
-    if (!userId) {
-      throw new AppError(
-        "Authentication required",
-        401,
-      );
-    }
+export const chatWithMovieAssistant = async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
 
-    const message =
-      typeof req.body?.message ===
-      "string"
-        ? req.body.message.trim()
-        : "";
+  if (!userId) {
+    throw new AppError("Authentication required", 401);
+  }
 
-    if (!message) {
-      throw new AppError(
-        "Message is required",
-        400,
-      );
-    }
+  const message =
+    typeof req.body?.message === "string" ? req.body.message.trim() : "";
 
-    const conversation =
-      Array.isArray(
-        req.body?.conversation,
-      )
-        ? req.body.conversation
-            .filter(
-              (item: unknown) =>
-                typeof item ===
-                  "object" &&
-                item !== null &&
-                "role" in item &&
-                "content" in item,
-            )
-            .slice(-10)
-        : [];
+  if (!message) {
+    throw new AppError("Message is required", 400);
+  }
 
-    const intent =
-      await extractAISearchIntent({
-        query: message,
-      });
+  if (message.length > 2000) {
+    throw new AppError("Message must be 2000 characters or fewer", 400);
+  }
 
-    const hasSearchIntent =
-      intent.searchQuery.trim() !==
-        message.trim() ||
-      intent.genre !== null ||
-      intent.language !== null ||
-      intent.yearFrom !== null ||
-      intent.yearTo !== null ||
-      intent.sortBy !== null;
+  // Validate unknown request-body data before accessing message properties.
+  // The explicit predicate gives TypeScript a safe ConversationMessage[] type.
+  const rawConversation: unknown[] = Array.isArray(req.body?.conversation)
+    ? req.body.conversation
+    : [];
 
-    if (!hasSearchIntent) {
-      const response =
-        await chatWithMovieAI({
-          message,
-          conversation,
-        });
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          answer: response.answer,
-          movies: [],
-        },
-      });
-    }
-
-    let movies: Movie[];
-
-    const hasFilters =
-      intent.genre !== null ||
-      intent.language !== null ||
-      intent.yearFrom !== null ||
-      intent.yearTo !== null;
-
-    if (hasFilters) {
-      const filters =
-        buildMovieFilters(intent);
-
-      const result =
-        await discoverMovies(filters);
-
-      movies =
-        result.movies.slice(0, 10);
-    } else {
-      const result =
-        await searchMovies(
-          intent.searchQuery,
-          1,
-        );
-
-      movies =
-        result.movies.slice(0, 10);
-    }
-
-    const movieContext = movies.map(
-      (movie: Movie) => ({
-        title: movie.title,
-        overview: movie.overview,
-        releaseDate:
-          movie.releaseDate,
+  const conversation: ConversationMessage[] = rawConversation
+    .filter(isConversationMessage)
+    .slice(-10)
+    .map(
+      (item: ConversationMessage): ConversationMessage => ({
+        role: item.role,
+        content: item.content.slice(0, 4000),
       }),
     );
 
-    const response =
-      await chatWithMovieAI({
-        message: `
-User request:
-${message}
-
-Real MovieBox movies found from TMDB:
-${JSON.stringify(movieContext)}
-
-Only discuss movies from the list above.
-Do not create or invent additional movie titles.
-Keep the response concise.
-`,
-        conversation,
-      });
+  // General questions (plot, endings, cast, directors, genres, film history,
+  // awards, comparisons) go straight to the chat model.
+  if (!isMovieDiscoveryRequest(message)) {
+    const response = await chatWithMovieAI({ message, conversation });
 
     return res.status(200).json({
       success: true,
-      data: {
-        answer: response.answer,
-        movies,
-      },
+      data: { answer: response.answer, movies: [] },
     });
-  };
+  }
+
+  let intent: Awaited<ReturnType<typeof extractAISearchIntent>>;
+
+  try {
+    intent = await extractAISearchIntent({ query: message });
+  } catch {
+    console.warn("MovieBox AI intent extraction failed; using chat fallback.");
+
+    const response = await chatWithMovieAI({ message, conversation });
+
+    return res.status(200).json({
+      success: true,
+      data: { answer: response.answer, movies: [] },
+    });
+  }
+
+  let movies: Movie[] = [];
+
+  const hasFilters =
+    intent.genre !== null ||
+    intent.language !== null ||
+    intent.yearFrom !== null ||
+    intent.yearTo !== null;
+
+  try {
+    if (hasFilters) {
+      const result = await discoverMovies(buildMovieFilters(intent));
+      movies = result.movies.slice(0, 10);
+    } else {
+      const query = intent.searchQuery.trim() || message;
+      const result = await searchMovies(query, 1);
+      movies = result.movies.slice(0, 10);
+    }
+  } catch {
+    console.warn(
+      "MovieBox AI could not retrieve TMDB results; using chat fallback.",
+    );
+
+    const response = await chatWithMovieAI({ message, conversation });
+
+    return res.status(200).json({
+      success: true,
+      data: { answer: response.answer, movies: [] },
+    });
+  }
+
+  const movieContext = movies.map((movie: Movie) => ({
+    id: movie.id,
+    title: movie.title,
+    overview: movie.overview,
+    releaseDate: movie.releaseDate,
+    rating: movie.rating,
+    genres: movie.genres,
+  }));
+
+  const response = await chatWithMovieAI({
+    message: [
+      `User request: ${message}`,
+      "",
+      "Verified MovieBox/TMDB results (use these exact titles and facts for the movie cards):",
+      JSON.stringify(movieContext),
+      "",
+      "Answer the user's request naturally. If results are present, briefly explain why they fit.",
+      "Do not claim a movie is in the results if it is not listed. Do not invent ratings, dates, cast, or credits.",
+      "If no results were found, say so honestly and still offer a useful next step.",
+    ].join("\n"),
+    conversation,
+  });
+
+  return res.status(200).json({
+    success: true,
+    data: { answer: response.answer, movies },
+  });
+};
