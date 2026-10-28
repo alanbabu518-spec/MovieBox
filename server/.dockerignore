@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated build output
+dist
+build
+coverage
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode
+.idea
